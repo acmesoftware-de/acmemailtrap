@@ -129,6 +129,36 @@ acmemailtrap:
     recipient-domains: []         # empty = forward all; else only these domains
 ```
 
+## Authentication (optional)
+
+The tool is **open by default** (zero-friction on localhost). To protect a shared
+instance, enable login under `acmemailtrap.auth.*`. SMTP/IMAP are never affected; only
+the web UI/API are gated. Authorization is a local allowlist — an OAuth provider with an
+empty allowlist admits nobody (fail closed).
+
+```yaml
+acmemailtrap:
+  auth:
+    enabled: true
+    local:   { enabled: true, username: admin, password: "change-me" }
+    github:                       # create an OAuth App; callback .../login/oauth2/code/github
+      enabled: true
+      client-id: "..."
+      client-secret: "..."
+      allowed-orgs:  [acmesoftware-de]
+      allowed-users: [fschupp]
+    gitlab:                       # self-hosted friendly; callback .../login/oauth2/code/gitlab
+      enabled: false
+      base-url: "https://gitlab.example.com"
+      client-id: "..."
+      client-secret: "..."
+      allowed-groups: [platform/team]
+```
+
+Secrets are best supplied via environment variables
+(`ACMEMAILTRAP_AUTH_GITHUB_CLIENT_SECRET=...`) rather than committed config. The role a
+user gets is assigned locally, never derived from the provider.
+
 ## Limitations
 
 This is a testing tool, not a production mail server. It requires no authentication,

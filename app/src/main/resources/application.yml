@@ -38,6 +38,29 @@ acmemailtrap:
     # Only forward mail addressed to these recipient domains. Empty = forward all.
     recipient-domains: []
 
+  auth:
+    # Tool login. Off by default = open on localhost (dev). See README "Authentication".
+    # Only the web UI/API are gated; SMTP/IMAP are never affected. Authorization is a
+    # local allowlist (fail closed). Supply secrets via env vars, not committed config.
+    enabled: false
+    local:
+      enabled: true
+      username: admin
+      password: ""
+    github:
+      enabled: false
+      client-id: ""
+      client-secret: ""
+      allowed-orgs: []
+      allowed-users: []
+    gitlab:
+      enabled: false
+      base-url: "https://gitlab.com"
+      client-id: ""
+      client-secret: ""
+      allowed-groups: []
+      allowed-users: []
+
 logging:
   level:
     de.acmesoftware.mailtrap: INFO

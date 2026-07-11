@@ -1,5 +1,6 @@
 package de.acmesoftware.mailtrap;
 
+import de.acmesoftware.mailtrap.auth.AuthProperties;
 import de.acmesoftware.mailtrap.config.MailtrapProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -12,7 +13,7 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
  * <p>Purpose: exercise the mail flows of ACMEsuite without touching real email.
  */
 @SpringBootApplication
-@EnableConfigurationProperties(MailtrapProperties.class)
+@EnableConfigurationProperties({MailtrapProperties.class, AuthProperties.class})
 public class AcmeMailtrapApplication {
 
     public static void main(String[] args) {
