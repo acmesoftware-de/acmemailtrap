@@ -63,14 +63,26 @@ export interface LogEntry {
   msg: string
 }
 
+export interface ConfigField {
+  key: string
+  label: string
+  type: 'TEXT' | 'NUMBER' | 'PASSWORD' | 'URL' | 'SELECT' | 'BOOL'
+  secret: boolean
+  options: string[]
+}
+
+export interface ForwarderProvider {
+  id: string
+  displayName: string
+  kind: string
+  schema: ConfigField[]
+}
+
 export interface ForwardConfig {
   enabled: boolean
-  host: string
-  port: number
-  username: string
-  hasPassword: boolean
-  tls: string
+  forwarderId: string
   mailboxes: string[]
+  values: Record<string, string>
 }
 
 export interface BuildInfo {

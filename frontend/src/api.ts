@@ -1,6 +1,7 @@
 import type {
   BuildInfo,
   ForwardConfig,
+  ForwarderProvider,
   LogEntry,
   MailboxInfo,
   MessageDetail,
@@ -51,6 +52,6 @@ export const api = {
   server: () => get<ServerInfo>('/api/server'),
   logs: (limit = 100) => get<LogEntry[]>(`/api/logs?limit=${limit}`),
   forward: () => get<ForwardConfig>('/api/forward'),
-  saveForward: (body: Partial<ForwardConfig> & { password?: string }) =>
-    send<ForwardConfig>('PUT', '/api/forward', body),
+  forwarders: () => get<ForwarderProvider[]>('/api/forward/providers'),
+  saveForward: (body: ForwardConfig) => send<ForwardConfig>('PUT', '/api/forward', body),
 }

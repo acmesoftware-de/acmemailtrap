@@ -8,7 +8,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -84,26 +83,12 @@ public class ForwardingService {
         }
         MailForwarder f = forwarder.get();
         try {
-            f.send(raw, from, recipients, configFor(s));
+            f.send(raw, from, recipients, new ForwarderConfig(s.values() == null ? Map.of() : s.values()));
             activity.forwarded(recipients, f.displayName());
             log.info("Forwarded from {} to {} via {}", from, recipients, f.id());
         } catch (Exception e) {
             activity.forwardFailed(f.displayName(), e.getMessage());
             log.error("Forwarding via {} to {} failed: {}", f.id(), recipients, e.getMessage());
         }
-    }
-
-    /** Build the forwarder's config from the settings snapshot. */
-    private ForwarderConfig configFor(ForwardSettings.Settings s) {
-        if ("smtp".equals(s.forwarderId())) {
-            Map<String, String> v = new LinkedHashMap<>();
-            v.put("host", s.host() == null ? "" : s.host());
-            v.put("port", String.valueOf(s.port()));
-            v.put("username", s.username() == null ? "" : s.username());
-            v.put("password", s.password() == null ? "" : s.password());
-            v.put("tls", s.tls().name());
-            return new ForwarderConfig(v);
-        }
-        return new ForwarderConfig(s.values() == null ? Map.of() : s.values());
     }
 }

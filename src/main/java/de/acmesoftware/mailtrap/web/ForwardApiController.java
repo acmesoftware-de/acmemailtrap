@@ -15,9 +15,10 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Runtime forwarding configuration for the design's Weiterleitung view (Teil 6). Exposes
- * the available forwarder plugins and their schemas, plus the current selection/config.
- * Secret values are never returned; a blank secret on write keeps the stored one.
+ * Runtime forwarding configuration for the Weiterleitung view (Teil 6). Exposes the
+ * installed forwarder plugins and their schemas plus the current selection/config;
+ * uniform across forwarders (values keyed by the selected forwarder's schema). Secret
+ * values are never returned; a blank secret on write keeps the stored one.
  */
 @RestController
 @RequestMapping("/api/forward")
@@ -42,56 +43,43 @@ public class ForwardApiController {
                 .toList();
     }
 
-    public record ForwardView(
-            boolean enabled, String forwarderId, String host, int port, String username,
-            boolean hasPassword, String tls, List<String> mailboxes, Map<String, String> values) {
+    public record ForwardView(boolean enabled, String forwarderId, List<String> mailboxes, Map<String, String> values) {
     }
 
-    public record ForwardUpdate(
-            boolean enabled, String forwarderId, String host, Integer port, String username,
-            String password, String tls, List<String> mailboxes, Map<String, String> values) {
+    public record ForwardUpdate(boolean enabled, String forwarderId, List<String> mailboxes, Map<String, String> values) {
     }
 
     @GetMapping
     public ForwardView get() {
         ForwardSettings.Settings s = settings.get();
-        return new ForwardView(
-                s.enabled(), s.forwarderId(), s.host(), s.port(), s.username(),
-                s.password() != null && !s.password().isBlank(), s.tls().name(),
-                s.mailboxes(), maskSecrets(s.forwarderId(), s.values()));
+        return new ForwardView(s.enabled(), s.forwarderId(), s.mailboxes(),
+                maskSecrets(s.forwarderId(), s.values()));
     }
 
     @PutMapping
     public ForwardView update(@RequestBody ForwardUpdate u) {
         ForwardSettings.Settings cur = settings.get();
         String forwarderId = u.forwarderId() != null ? u.forwarderId() : cur.forwarderId();
-        // Blank SMTP password on write keeps the currently stored one.
-        String password = (u.password() == null || u.password().isBlank()) ? cur.password() : u.password();
-        ForwardSettings.Tls tls = parseTls(u.tls(), cur.tls());
-        Map<String, String> values = mergeValues(forwarderId, cur.values(), u.values());
+        // Values are merged onto the current ones; a blank secret keeps the stored value.
+        // When the forwarder changes, start from the incoming values only.
+        Map<String, String> base = forwarderId.equals(cur.forwarderId()) ? cur.values() : Map.of();
+        Map<String, String> values = mergeValues(forwarderId, base, u.values());
 
         settings.set(new ForwardSettings.Settings(
                 u.enabled(),
                 forwarderId,
-                u.host() != null ? u.host() : cur.host(),
-                u.port() != null ? u.port() : cur.port(),
-                u.username() != null ? u.username() : cur.username(),
-                password,
-                tls,
                 u.mailboxes() != null ? List.copyOf(u.mailboxes()) : cur.mailboxes(),
                 values));
         return get();
     }
 
-    /** Blank incoming secret values keep the stored ones (per the forwarder's schema). */
     private Map<String, String> mergeValues(String forwarderId, Map<String, String> current, Map<String, String> incoming) {
         if (incoming == null) {
             return current == null ? Map.of() : current;
         }
         Map<String, String> merged = new LinkedHashMap<>(current == null ? Map.of() : current);
         for (var e : incoming.entrySet()) {
-            boolean secret = isSecret(forwarderId, e.getKey());
-            if (secret && (e.getValue() == null || e.getValue().isBlank())) {
+            if (isSecret(forwarderId, e.getKey()) && (e.getValue() == null || e.getValue().isBlank())) {
                 continue; // keep existing secret
             }
             merged.put(e.getKey(), e.getValue());
@@ -114,16 +102,5 @@ public class ForwardApiController {
         return registry.byId(forwarderId)
                 .map(MailForwarder::configSchema).orElse(List.of()).stream()
                 .anyMatch(f -> f.key().equals(key) && f.secret());
-    }
-
-    private static ForwardSettings.Tls parseTls(String value, ForwardSettings.Tls fallback) {
-        if (value == null) {
-            return fallback;
-        }
-        try {
-            return ForwardSettings.Tls.valueOf(value.toUpperCase());
-        } catch (IllegalArgumentException e) {
-            return fallback;
-        }
     }
 }

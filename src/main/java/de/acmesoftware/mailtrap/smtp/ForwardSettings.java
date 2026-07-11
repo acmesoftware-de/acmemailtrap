@@ -3,37 +3,35 @@ package de.acmesoftware.mailtrap.smtp;
 import de.acmesoftware.mailtrap.config.MailtrapProperties;
 import org.springframework.stereotype.Component;
 
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
 /**
- * Runtime-editable forwarding configuration (Teil 6). Seeded from
- * {@code acmemailtrap.forward.*} but changeable at runtime via the Weiterleitung UI,
- * so a test can toggle the real relay without restarting. Reads return an immutable
- * snapshot; writes swap the whole snapshot atomically.
+ * Runtime-editable forwarding configuration (Teil 6). Uniform across all forwarders:
+ * which forwarder is selected, which mailboxes it applies to, and its {@code values}
+ * keyed by the forwarder's {@link de.acmesoftware.mailtrap.forward.ConfigField} schema.
+ * Seeded from {@code acmemailtrap.forward.*} (the SMTP forwarder's values). Reads return
+ * an immutable snapshot; writes swap it atomically.
  */
 @Component
 public class ForwardSettings {
 
-    public enum Tls { STARTTLS, SSL, NONE }
-
-    /**
-     * Immutable snapshot of the current settings. The SMTP-specific fields
-     * (host/port/username/password/tls) are the config for the built-in SMTP forwarder;
-     * other forwarders (webhook, graph, ...) use {@code values} keyed by their schema.
-     */
-    public record Settings(
-            boolean enabled, String forwarderId, String host, int port, String username, String password,
-            Tls tls, List<String> mailboxes, Map<String, String> values) {
+    /** Immutable snapshot of the current settings. */
+    public record Settings(boolean enabled, String forwarderId, List<String> mailboxes, Map<String, String> values) {
     }
 
     private volatile Settings current;
 
     public ForwardSettings(MailtrapProperties props) {
         MailtrapProperties.Forward f = props.getForward();
-        this.current = new Settings(
-                f.isEnabled(), "smtp", f.getHost(), f.getPort(), f.getUsername(), f.getPassword(),
-                f.isStarttls() ? Tls.STARTTLS : Tls.NONE, List.of(), Map.of());
+        Map<String, String> smtp = new LinkedHashMap<>();
+        smtp.put("host", f.getHost());
+        smtp.put("port", String.valueOf(f.getPort()));
+        smtp.put("username", f.getUsername());
+        smtp.put("password", f.getPassword());
+        smtp.put("tls", f.isStarttls() ? "STARTTLS" : "NONE");
+        this.current = new Settings(f.isEnabled(), "smtp", List.of(), smtp);
     }
 
     public Settings get() {

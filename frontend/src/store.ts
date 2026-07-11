@@ -4,6 +4,7 @@ import { ACCENT_DEFAULT } from './format'
 import type {
   BuildInfo,
   ForwardConfig,
+  ForwarderProvider,
   Filter,
   LogEntry,
   MailboxInfo,
@@ -25,12 +26,9 @@ interface Comp {
 
 interface FwdForm {
   enabled: boolean
-  host: string
-  port: string
-  username: string
-  password: string
-  tls: string
+  forwarderId: string
   mailboxes: string[]
+  values: Record<string, string>
   flash: string
 }
 
@@ -52,6 +50,7 @@ interface State {
   server: ServerInfo | null
   logs: LogEntry[]
   forward: ForwardConfig | null
+  forwarders: ForwarderProvider[]
   build: BuildInfo | null
 
   comp: Comp
@@ -76,6 +75,8 @@ interface State {
 
   loadForward: () => Promise<void>
   setFwd: (patch: Partial<FwdForm>) => void
+  setForwarderId: (id: string) => void
+  setValue: (key: string, value: string) => void
   toggleFwdBox: (addr: string) => void
   saveForward: () => Promise<void>
 }
@@ -100,18 +101,16 @@ export const useStore = create<State>((set, get) => ({
   server: null,
   logs: [],
   forward: null,
+  forwarders: [],
   build: null,
 
   comp: emptyComp,
   compFlash: '',
   fwd: {
     enabled: false,
-    host: '',
-    port: '587',
-    username: '',
-    password: '',
-    tls: 'STARTTLS',
+    forwarderId: 'smtp',
     mailboxes: [],
+    values: {},
     flash: '',
   },
 
@@ -234,17 +233,15 @@ export const useStore = create<State>((set, get) => ({
 
   loadForward: async () => {
     try {
-      const f = await api.forward()
+      const [f, providers] = await Promise.all([api.forward(), api.forwarders()])
       set({
         forward: f,
+        forwarders: providers,
         fwd: {
           enabled: f.enabled,
-          host: f.host,
-          port: String(f.port),
-          username: f.username,
-          password: '',
-          tls: f.tls,
+          forwarderId: f.forwarderId,
           mailboxes: f.mailboxes,
+          values: f.values ?? {},
           flash: '',
         },
       })
@@ -254,6 +251,12 @@ export const useStore = create<State>((set, get) => ({
   },
 
   setFwd: (patch) => set((st) => ({ fwd: { ...st.fwd, ...patch, flash: '' } })),
+
+  setForwarderId: (id) =>
+    set((st) => ({ fwd: { ...st.fwd, forwarderId: id, values: {}, flash: '' } })),
+
+  setValue: (key, value) =>
+    set((st) => ({ fwd: { ...st.fwd, values: { ...st.fwd.values, [key]: value }, flash: '' } })),
 
   toggleFwdBox: (addr) =>
     set((st) => {
@@ -273,12 +276,9 @@ export const useStore = create<State>((set, get) => ({
     const f = get().fwd
     await api.saveForward({
       enabled: f.enabled,
-      host: f.host,
-      port: Number(f.port) || 0,
-      username: f.username,
-      password: f.password,
-      tls: f.tls,
+      forwarderId: f.forwarderId,
       mailboxes: f.mailboxes,
+      values: f.values,
     })
     await get().loadForward()
     set((st) => ({ fwd: { ...st.fwd, flash: 'Gespeichert' } }))

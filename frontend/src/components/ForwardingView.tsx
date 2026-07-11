@@ -1,10 +1,5 @@
 import { useStore } from '../store'
-
-const TLS_OPTS: { label: string; value: string }[] = [
-  { label: 'STARTTLS', value: 'STARTTLS' },
-  { label: 'SSL', value: 'SSL' },
-  { label: 'KEINE', value: 'NONE' },
-]
+import type { ConfigField } from '../types'
 
 const inputStyle = {
   width: '100%',
@@ -12,6 +7,7 @@ const inputStyle = {
   background: 'var(--bg)',
   color: 'var(--ink)',
   padding: '10px 12px',
+  font: "400 13px 'Archivo'",
 } as const
 
 const labelStyle = {
@@ -23,14 +19,17 @@ const labelStyle = {
 
 export default function ForwardingView() {
   const fwd = useStore((s) => s.fwd)
-  const forward = useStore((s) => s.forward)
+  const forwarders = useStore((s) => s.forwarders)
   const mailboxes = useStore((s) => s.mailboxes)
   const setFwd = useStore((s) => s.setFwd)
+  const setForwarderId = useStore((s) => s.setForwarderId)
+  const setValue = useStore((s) => s.setValue)
   const toggleFwdBox = useStore((s) => s.toggleFwdBox)
   const saveForward = useStore((s) => s.saveForward)
 
   const boxes = mailboxes.filter((m) => !m.sent)
   const rules = boxes.filter((b) => fwd.mailboxes.includes(b.address))
+  const selected = forwarders.find((p) => p.id === fwd.forwarderId)
 
   return (
     <div style={{ flex: 1, minHeight: 0, display: 'flex', gap: 14, padding: '16px 24px 24px', borderTop: '1px solid var(--line)', overflow: 'auto' }}>
@@ -50,57 +49,21 @@ export default function ForwardingView() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 120px', gap: 14, marginTop: 18 }}>
-          <div>
-            <div style={labelStyle}>RELAY-HOST</div>
-            <input value={fwd.host} onChange={(e) => setFwd({ host: e.target.value })} style={{ ...inputStyle, font: "400 13px 'Archivo'" }} />
-          </div>
-          <div>
-            <div style={labelStyle}>PORT</div>
-            <input value={fwd.port} onChange={(e) => setFwd({ port: e.target.value })} style={{ ...inputStyle, font: "400 13px 'Space Mono'" }} />
-          </div>
+        <div style={{ marginTop: 18 }}>
+          <div style={labelStyle}>DIENST</div>
+          <select value={fwd.forwarderId} onChange={(e) => setForwarderId(e.target.value)} style={{ ...inputStyle, font: "400 13px 'Space Mono'" }}>
+            {forwarders.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.displayName}
+              </option>
+            ))}
+          </select>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 14 }}>
-          <div>
-            <div style={labelStyle}>BENUTZER</div>
-            <input value={fwd.username} onChange={(e) => setFwd({ username: e.target.value })} style={{ ...inputStyle, font: "400 13px 'Archivo'" }} />
-          </div>
-          <div>
-            <div style={labelStyle}>PASSWORT</div>
-            <input
-              type="password"
-              value={fwd.password}
-              placeholder={forward?.hasPassword ? '••••••••••' : ''}
-              onChange={(e) => setFwd({ password: e.target.value })}
-              style={{ ...inputStyle, font: "400 13px 'Space Mono'" }}
-            />
-          </div>
-        </div>
-
-        <div style={{ ...labelStyle, margin: '18px 0 8px' }}>VERSCHLÜSSELUNG</div>
-        <div style={{ display: 'flex', border: '1px solid var(--line2)', width: 'max-content' }}>
-          {TLS_OPTS.map((o, i) => {
-            const active = fwd.tls === o.value
-            return (
-              <button
-                key={o.value}
-                onClick={() => setFwd({ tls: o.value })}
-                style={{
-                  padding: '8px 16px',
-                  border: 'none',
-                  borderLeft: i === 0 ? 'none' : '1px solid var(--line2)',
-                  font: "700 10px 'Space Mono'",
-                  letterSpacing: '.04em',
-                  cursor: 'pointer',
-                  background: active ? 'var(--accent)' : 'transparent',
-                  color: active ? '#fff' : 'var(--dim)',
-                }}
-              >
-                {o.label}
-              </button>
-            )
-          })}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 14, marginTop: 16 }}>
+          {selected?.schema.map((f) => (
+            <Field key={f.key} field={f} value={fwd.values[f.key] ?? ''} onChange={(v) => setValue(f.key, v)} />
+          ))}
         </div>
 
         <div style={{ ...labelStyle, margin: '20px 0 8px' }}>POSTFÄCHER WEITERLEITEN</div>
@@ -145,13 +108,13 @@ export default function ForwardingView() {
               <div key={r.folder} style={{ borderLeft: '3px solid var(--accent)', background: 'var(--chip)', padding: '12px 14px', marginTop: 12 }}>
                 <div style={{ font: "600 12.5px 'Archivo'", color: 'var(--ink)' }}>{r.address}</div>
                 <div style={{ font: "400 10.5px 'Space Mono'", color: 'var(--dim)', marginTop: 5 }}>
-                  → {fwd.host}:{fwd.port}
+                  → {selected?.displayName ?? fwd.forwarderId}
                 </div>
               </div>
             ))
           ) : (
             <div style={{ marginTop: 14, font: "400 12px/1.6 'Archivo'", color: 'var(--dim)' }}>
-              Weiterleitung aktiv, aber kein Postfach ausgewählt — alle abgefangenen Mails werden weitergeleitet.
+              Weiterleitung aktiv über {selected?.displayName ?? fwd.forwarderId}, aber kein Postfach ausgewählt — alle abgefangenen Mails werden weitergeleitet.
             </div>
           )
         ) : (
@@ -160,6 +123,33 @@ export default function ForwardingView() {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function Field({ field, value, onChange }: { field: ConfigField; value: string; onChange: (v: string) => void }) {
+  return (
+    <div>
+      <div style={labelStyle}>{field.label.toUpperCase()}</div>
+      {field.type === 'SELECT' ? (
+        <select value={value} onChange={(e) => onChange(e.target.value)} style={{ ...inputStyle, font: "400 13px 'Space Mono'" }}>
+          {field.options.map((o) => (
+            <option key={o} value={o}>
+              {o}
+            </option>
+          ))}
+        </select>
+      ) : field.type === 'BOOL' ? (
+        <input type="checkbox" checked={value === 'true'} onChange={(e) => onChange(String(e.target.checked))} />
+      ) : (
+        <input
+          type={field.secret ? 'password' : field.type === 'NUMBER' ? 'text' : 'text'}
+          value={value}
+          placeholder={field.secret ? '••••••••' : ''}
+          onChange={(e) => onChange(e.target.value)}
+          style={{ ...inputStyle, font: field.type === 'NUMBER' || field.secret ? "400 13px 'Space Mono'" : "400 13px 'Archivo'" }}
+        />
+      )}
     </div>
   )
 }
