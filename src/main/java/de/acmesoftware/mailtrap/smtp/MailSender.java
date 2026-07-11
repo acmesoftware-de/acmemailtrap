@@ -1,5 +1,6 @@
 package de.acmesoftware.mailtrap.smtp;
 
+import de.acmesoftware.mailtrap.server.ServerActivity;
 import de.acmesoftware.mailtrap.store.MailStore;
 import jakarta.mail.Message;
 import jakarta.mail.Session;
@@ -26,10 +27,12 @@ public class MailSender {
 
     private final MailStore store;
     private final ForwardingService forwarding;
+    private final ServerActivity activity;
 
-    public MailSender(MailStore store, ForwardingService forwarding) {
+    public MailSender(MailStore store, ForwardingService forwarding, ServerActivity activity) {
         this.store = store;
         this.forwarding = forwarding;
+        this.activity = activity;
     }
 
     /** Request to compose a new message. */
@@ -51,6 +54,8 @@ public class MailSender {
         byte[] raw = buildMime(from, req);
         List<String> recipients = new ArrayList<>(req.to());
         String id = store.store(raw, from, recipients);
+        store.storeSentCopy(raw, from, recipients);
+        activity.sent(recipients);
         forwarding.maybeForward(raw, from, recipients);
         return id;
     }

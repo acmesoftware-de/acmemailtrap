@@ -1,5 +1,6 @@
 package de.acmesoftware.mailtrap.imap;
 
+import de.acmesoftware.mailtrap.server.ServerActivity;
 import de.acmesoftware.mailtrap.store.MailStore;
 import de.acmesoftware.mailtrap.store.MailboxInfo;
 import de.acmesoftware.mailtrap.store.MessageMeta;
@@ -36,6 +37,7 @@ class ImapSession {
 
     private final Socket socket;
     private final MailStore store;
+    private final ServerActivity activity;
 
     private boolean authenticated;
     private String account = "";        // username; INBOX resolves to this address
@@ -43,12 +45,14 @@ class ImapSession {
     private boolean readOnly;
     private List<MessageMeta> snapshot = List.of(); // ascending by receivedAt then id
 
-    ImapSession(Socket socket, MailStore store) {
+    ImapSession(Socket socket, MailStore store, ServerActivity activity) {
         this.socket = socket;
         this.store = store;
+        this.activity = activity;
     }
 
     void run() {
+        activity.connectionOpened();
         try (socket;
              InputStream in = socket.getInputStream();
              OutputStream out = new BufferedOutputStream(socket.getOutputStream())) {
@@ -62,6 +66,8 @@ class ImapSession {
             }
         } catch (IOException e) {
             log.debug("IMAP connection ended: {}", e.getMessage());
+        } finally {
+            activity.connectionClosed();
         }
     }
 
@@ -85,6 +91,7 @@ class ImapSession {
             case "LOGIN" -> {
                 account = args.isEmpty() ? "" : MailStore.normalizeAddress(unquote(args.get(0)));
                 authenticated = true;
+                activity.imapSession(account);
                 tagged(out, tag, "OK", "LOGIN completed");
             }
             case "LOGOUT" -> {

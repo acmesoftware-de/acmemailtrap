@@ -1,6 +1,5 @@
 package de.acmesoftware.mailtrap.store;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import de.acmesoftware.mailtrap.config.MailtrapProperties;
 import jakarta.annotation.PostConstruct;
 import jakarta.mail.MessagingException;
@@ -10,6 +9,7 @@ import jakarta.mail.internet.MimeMessage;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Component;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -42,6 +42,8 @@ public class MailStore {
 
     private static final Logger log = LoggerFactory.getLogger(MailStore.class);
     private static final String ADDRESS_FILE = ".address";
+    private static final String SENT_MARKER = ".sent";
+    private static final String LABEL_FILE = ".label";
 
     private final Path root;
     private final ObjectMapper json;
@@ -70,8 +72,42 @@ public class MailStore {
      *
      * @return the list of stored message ids (one per recipient, all identical id)
      */
+    /** Reserved display address / folder for the composer's "Sent" copies (Teil 5). */
+    public static final String SENT_MAILBOX = "Gesendet";
+
     public String store(byte[] raw, String envelopeFrom, List<String> recipients) {
         String id = newId();
+        MessageMeta meta = computeMeta(id, raw, envelopeFrom, recipients);
+
+        lock.lock();
+        try {
+            for (String recipient : meta.recipients()) {
+                writeMessage(recipient, meta, raw, false, null);
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to store message " + id, e);
+        } finally {
+            lock.unlock();
+        }
+        log.info("Stored message {} ({} bytes) for {}", id, raw.length, meta.recipients());
+        return id;
+    }
+
+    /** Store a copy of a just-sent message into the "Gesendet" mailbox (Teil 5). */
+    public void storeSentCopy(byte[] raw, String envelopeFrom, List<String> recipients) {
+        String id = newId();
+        MessageMeta meta = computeMeta(id, raw, envelopeFrom, recipients);
+        lock.lock();
+        try {
+            writeMessage(SENT_MAILBOX, meta, raw, true, SENT_MAILBOX);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to store sent copy " + id, e);
+        } finally {
+            lock.unlock();
+        }
+    }
+
+    private MessageMeta computeMeta(String id, byte[] raw, String envelopeFrom, List<String> recipients) {
         MimeMessage parsed;
         try {
             parsed = MimeSupport.parse(raw);
@@ -81,24 +117,23 @@ public class MailStore {
         String from = parsed != null ? firstNonBlank(MimeSupport.from(parsed), envelopeFrom) : envelopeFrom;
         String subject = parsed != null ? MimeSupport.subject(parsed) : "";
         long received = parsed != null ? MimeSupport.dateMillis(parsed) : System.currentTimeMillis();
-
+        String mod = parsed != null
+                ? MimeSupport.firstHeader(parsed, "X-ACMEsuite-Module").toLowerCase(Locale.ROOT) : "";
         List<String> normalized = recipients.stream().map(MailStore::normalizeAddress).distinct().toList();
-        MessageMeta meta = new MessageMeta(id, from, subject, received, raw.length, false, normalized);
+        return new MessageMeta(id, from, subject, received, raw.length, false, normalized, mod);
+    }
 
-        lock.lock();
-        try {
-            for (String recipient : normalized) {
-                Path box = mailboxDir(recipient, true);
-                Files.write(box.resolve(id + ".eml"), raw);
-                writeMeta(box, meta);
-            }
-        } catch (IOException e) {
-            throw new UncheckedIOException("Failed to store message " + id, e);
-        } finally {
-            lock.unlock();
+    private void writeMessage(String address, MessageMeta meta, byte[] raw, boolean sent, String label)
+            throws IOException {
+        Path box = mailboxDir(address, true);
+        if (sent) {
+            Files.write(box.resolve(SENT_MARKER), new byte[0]);
         }
-        log.info("Stored message {} ({} bytes) for {}", id, raw.length, normalized);
-        return id;
+        if (label != null) {
+            Files.writeString(box.resolve(LABEL_FILE), label, StandardCharsets.UTF_8);
+        }
+        Files.write(box.resolve(meta.id() + ".eml"), raw);
+        writeMeta(box, meta);
     }
 
     // ---- read path (web UI + IMAP) ----------------------------------------------
@@ -115,15 +150,54 @@ public class MailStore {
                 List<MessageMeta> metas = readAllMeta(dir);
                 int unseen = (int) metas.stream().filter(m -> !m.seen()).count();
                 long last = metas.stream().mapToLong(MessageMeta::receivedAt).max().orElse(0L);
-                result.add(new MailboxInfo(address, dir.getFileName().toString(), metas.size(), unseen, last));
+                boolean sent = Files.exists(dir.resolve(SENT_MARKER));
+                String label = readLabel(dir).orElse(null);
+                result.add(new MailboxInfo(address, dir.getFileName().toString(),
+                        metas.size(), unseen, last, sent, label));
             }
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to list mailboxes", e);
         } finally {
             lock.unlock();
         }
-        result.sort(Comparator.comparingLong(MailboxInfo::lastReceivedAt).reversed());
+        // Sent mailbox last, then most-recently-active first.
+        result.sort(Comparator.comparing(MailboxInfo::sent)
+                .thenComparing(Comparator.comparingLong(MailboxInfo::lastReceivedAt).reversed()));
         return result;
+    }
+
+    /** KPI snapshot for the dashboard. Excludes the "Sent" mailbox from caught totals. */
+    public Stats stats(long todayStartMillis) {
+        int messages = 0;
+        int mailboxes = 0;
+        int unread = 0;
+        int today = 0;
+        lock.lock();
+        try (DirectoryStream<Path> dirs = Files.newDirectoryStream(root)) {
+            for (Path dir : dirs) {
+                if (!Files.isDirectory(dir) || Files.exists(dir.resolve(SENT_MARKER))) {
+                    continue; // skip non-dirs and the Sent mailbox
+                }
+                mailboxes++;
+                for (MessageMeta m : readAllMeta(dir)) {
+                    messages++;
+                    if (!m.seen()) {
+                        unread++;
+                    }
+                    if (m.receivedAt() >= todayStartMillis) {
+                        today++;
+                    }
+                }
+            }
+        } catch (IOException e) {
+            throw new UncheckedIOException("Failed to compute stats", e);
+        } finally {
+            lock.unlock();
+        }
+        return new Stats(messages, mailboxes, unread, today);
+    }
+
+    public record Stats(int messages, int mailboxes, int unread, int today) {
     }
 
     /** Messages of a mailbox, newest first. */
@@ -332,6 +406,19 @@ public class MailStore {
         return Optional.empty();
     }
 
+    private Optional<String> readLabel(Path dir) {
+        Path f = dir.resolve(LABEL_FILE);
+        if (Files.isRegularFile(f)) {
+            try {
+                String label = Files.readString(f, StandardCharsets.UTF_8).trim();
+                return label.isEmpty() ? Optional.empty() : Optional.of(label);
+            } catch (IOException e) {
+                return Optional.empty();
+            }
+        }
+        return Optional.empty();
+    }
+
     private List<MessageMeta> readAllMeta(Path box) {
         List<MessageMeta> metas = new ArrayList<>();
         try (DirectoryStream<Path> emls = Files.newDirectoryStream(box, "*.eml")) {
@@ -352,7 +439,9 @@ public class MailStore {
         }
         try {
             return Optional.of(json.readValue(Files.readAllBytes(metaFile), MessageMeta.class));
-        } catch (IOException e) {
+        } catch (IOException | RuntimeException e) {
+            // IOException from the file read; RuntimeException from Jackson 3 (unchecked)
+            // on corrupt JSON. Either way, fall back to regenerating from the .eml.
             log.warn("Corrupt meta {}, regenerating", metaFile);
             return Optional.empty();
         }
@@ -366,7 +455,7 @@ public class MailStore {
         try {
             return regenerateMeta(box, id, Files.readAllBytes(box.resolve(safeId(id) + ".eml")));
         } catch (IOException e) {
-            return new MessageMeta(id, "", "", 0L, 0L, false, List.of());
+            return new MessageMeta(id, "", "", 0L, 0L, false, List.of(), "");
         }
     }
 
@@ -374,16 +463,18 @@ public class MailStore {
         String from = "";
         String subject = "";
         long received = System.currentTimeMillis();
+        String mod = "";
         try {
             MimeMessage parsed = MimeSupport.parse(raw);
             from = MimeSupport.from(parsed);
             subject = MimeSupport.subject(parsed);
             received = MimeSupport.dateMillis(parsed);
+            mod = MimeSupport.firstHeader(parsed, "X-ACMEsuite-Module").toLowerCase(Locale.ROOT);
         } catch (MessagingException e) {
             // keep defaults
         }
         String address = readAddress(box).orElse(box.getFileName().toString());
-        MessageMeta meta = new MessageMeta(id, from, subject, received, raw.length, false, List.of(address));
+        MessageMeta meta = new MessageMeta(id, from, subject, received, raw.length, false, List.of(address), mod);
         try {
             writeMeta(box, meta);
         } catch (IOException e) {

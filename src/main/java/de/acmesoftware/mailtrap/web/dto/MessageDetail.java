@@ -14,6 +14,7 @@ public record MessageDetail(
         long size,
         boolean seen,
         List<String> recipients,
+        String mod,
         String text,
         String html,
         List<AttachmentDto> attachments
@@ -30,6 +31,6 @@ public record MessageDetail(
         return new MessageDetail(
                 m.meta().id(), m.mailbox(), m.meta().from(), m.meta().subject(),
                 m.meta().receivedAt(), m.meta().size(), m.meta().seen(),
-                m.meta().recipients(), m.textBody(), m.htmlBody(), atts);
+                m.meta().recipients(), m.meta().mod(), m.textBody(), m.htmlBody(), atts);
     }
 }

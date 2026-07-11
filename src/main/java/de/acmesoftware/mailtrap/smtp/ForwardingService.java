@@ -1,6 +1,7 @@
 package de.acmesoftware.mailtrap.smtp;
 
 import de.acmesoftware.mailtrap.config.MailtrapProperties;
+import de.acmesoftware.mailtrap.server.ServerActivity;
 import jakarta.mail.Address;
 import jakarta.mail.PasswordAuthentication;
 import jakarta.mail.Session;
@@ -29,14 +30,16 @@ public class ForwardingService {
     private static final Logger log = LoggerFactory.getLogger(ForwardingService.class);
 
     private final MailtrapProperties.Forward cfg;
+    private final ServerActivity activity;
     private final ExecutorService pool = Executors.newFixedThreadPool(2, r -> {
         Thread t = new Thread(r, "smtp-forward");
         t.setDaemon(true);
         return t;
     });
 
-    public ForwardingService(MailtrapProperties props) {
+    public ForwardingService(MailtrapProperties props, ServerActivity activity) {
         this.cfg = props.getForward();
+        this.activity = activity;
     }
 
     /** Relay asynchronously if forwarding is enabled and at least one recipient matches. */
@@ -80,8 +83,10 @@ public class ForwardingService {
                 }
                 transport.sendMessage(msg, to);
             }
+            activity.forwarded(recipients, cfg.getHost(), cfg.getPort());
             log.info("Forwarded message from {} to {} via {}:{}", from, recipients, cfg.getHost(), cfg.getPort());
         } catch (Exception e) {
+            activity.forwardFailed(cfg.getHost(), e.getMessage());
             log.error("Forwarding to {} failed: {}", recipients, e.getMessage());
         }
     }

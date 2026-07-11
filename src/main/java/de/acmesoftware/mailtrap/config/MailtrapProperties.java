@@ -54,7 +54,7 @@ public class MailtrapProperties {
     public static class Smtp {
         private boolean enabled = true;
         private String bind = "0.0.0.0";
-        private int port = 2525;
+        private int port = 1025;
         private long maxMessageSize = 26_214_400L; // 25 MiB
         private String hostname = "acmemailtrap.local";
 

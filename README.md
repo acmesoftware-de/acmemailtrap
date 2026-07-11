@@ -61,14 +61,14 @@ Then open the web UI and point ACMEsuite at the SMTP port:
 | Surface | Default            |
 |---------|--------------------|
 | Web UI  | http://localhost:8090 |
-| SMTP    | localhost:2525     |
+| SMTP    | localhost:1025     |
 | IMAP    | localhost:1143     |
 
 Send a quick test message from the shell:
 
 ```
 printf 'From: alice@acmesuite.test\r\nTo: bob@kunde.test\r\nSubject: Hello\r\n\r\nBody\r\n' \
-  | curl -s --url 'smtp://localhost:2525' \
+  | curl -s --url 'smtp://localhost:1025' \
     --mail-from alice@acmesuite.test --mail-rcpt bob@kunde.test --upload-file -
 ```
 
@@ -83,7 +83,7 @@ and can be overridden with environment variables or CLI args.
 ```yaml
 acmemailtrap:
   data-dir: ./data
-  smtp:   { enabled: true, bind: 0.0.0.0, port: 2525, max-message-size: 26214400 }
+  smtp:   { enabled: true, bind: 0.0.0.0, port: 1025, max-message-size: 26214400 }
   imap:   { enabled: true, bind: 0.0.0.0, port: 1143 }
   forward:                        # Teil 6, off by default
     enabled: false

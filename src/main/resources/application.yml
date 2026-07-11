@@ -16,7 +16,7 @@ acmemailtrap:
   smtp:
     enabled: true
     bind: 0.0.0.0
-    port: 2525
+    port: 1025
     # Reject DATA larger than this many bytes (default 25 MiB).
     max-message-size: 26214400
     # Greeting hostname announced in the SMTP banner.

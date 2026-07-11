@@ -1,9 +1,9 @@
 package de.acmesoftware.mailtrap.store;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import de.acmesoftware.mailtrap.config.MailtrapProperties;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
@@ -16,7 +16,7 @@ class MailStoreTest {
     private MailStore newStore(Path dir) {
         MailtrapProperties props = new MailtrapProperties();
         props.setDataDir(dir.toString());
-        MailStore store = new MailStore(props, new ObjectMapper());
+        MailStore store = new MailStore(props, JsonMapper.builder().build());
         store.init();
         return store;
     }
@@ -68,6 +68,36 @@ class MailStoreTest {
 
         assertThat(store.deleteMessage("bob@kunde.test", id)).isTrue();
         assertThat(store.listMessages("bob@kunde.test")).isEmpty();
+    }
+
+    @Test
+    void parsesModuleHeader(@TempDir Path dir) {
+        MailStore store = newStore(dir);
+        String eml = "From: billing@acmesuite.test\r\nTo: bob@kunde.test\r\n"
+                + "Subject: Rechnung\r\nX-ACMEsuite-Module: Billing\r\n\r\nBody\r\n";
+        String id = store.store(eml.getBytes(StandardCharsets.UTF_8),
+                "billing@acmesuite.test", List.of("bob@kunde.test"));
+        assertThat(store.getMessage("bob@kunde.test", id).orElseThrow().meta().mod())
+                .isEqualTo("billing");
+    }
+
+    @Test
+    void sentCopyIsExcludedFromStats(@TempDir Path dir) {
+        MailStore store = newStore(dir);
+        store.store(sample("bob@kunde.test", "a"), "alice@acmesuite.test", List.of("bob@kunde.test"));
+        store.storeSentCopy(sample("chef@kunde.test", "b"),
+                "alice@acmesuite.test", List.of("chef@kunde.test"));
+
+        // The Sent mailbox exists and is flagged...
+        assertThat(store.listMailboxes()).anySatisfy(b -> {
+            assertThat(b.address()).isEqualTo(MailStore.SENT_MAILBOX);
+            assertThat(b.sent()).isTrue();
+        });
+        // ...but is not counted in the caught-mail KPIs.
+        MailStore.Stats stats = store.stats(0L);
+        assertThat(stats.mailboxes()).isEqualTo(1); // only bob
+        assertThat(stats.messages()).isEqualTo(1);
+        assertThat(stats.today()).isEqualTo(1); // todayStart=0 -> everything counts
     }
 
     @Test

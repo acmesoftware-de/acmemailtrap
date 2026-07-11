@@ -50,6 +50,16 @@ public final class MimeSupport {
         return "";
     }
 
+    /** First value of the named header, or empty string. */
+    public static String firstHeader(MimeMessage msg, String name) {
+        try {
+            String[] h = msg.getHeader(name);
+            return (h != null && h.length > 0 && h[0] != null) ? h[0].trim() : "";
+        } catch (MessagingException e) {
+            return "";
+        }
+    }
+
     public static long dateMillis(MimeMessage msg) {
         try {
             var d = msg.getSentDate();

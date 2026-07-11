@@ -1,6 +1,7 @@
 package de.acmesoftware.mailtrap.smtp;
 
 import de.acmesoftware.mailtrap.config.MailtrapProperties;
+import de.acmesoftware.mailtrap.server.ServerActivity;
 import de.acmesoftware.mailtrap.store.MailStore;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -38,17 +39,20 @@ public class SmtpReceiver implements SmartLifecycle {
     private final String hostname;
     private final MailStore store;
     private final ForwardingService forwarding;
+    private final ServerActivity activity;
 
     private volatile boolean running;
     private ServerSocket serverSocket;
     private Thread acceptThread;
     private ExecutorService connections;
 
-    public SmtpReceiver(MailtrapProperties props, MailStore store, ForwardingService forwarding) {
+    public SmtpReceiver(MailtrapProperties props, MailStore store, ForwardingService forwarding,
+                        ServerActivity activity) {
         this.cfg = props.getSmtp();
         this.hostname = props.getSmtp().getHostname();
         this.store = store;
         this.forwarding = forwarding;
+        this.activity = activity;
     }
 
     @Override
@@ -73,6 +77,7 @@ public class SmtpReceiver implements SmartLifecycle {
         acceptThread = new Thread(this::acceptLoop, "smtp-accept");
         acceptThread.setDaemon(true);
         acceptThread.start();
+        activity.markSmtpUp(cfg.getPort());
         log.info("SMTP receiver listening on {}:{}", cfg.getBind(), cfg.getPort());
     }
 
@@ -90,6 +95,7 @@ public class SmtpReceiver implements SmartLifecycle {
     }
 
     private void handle(Socket socket) {
+        activity.connectionOpened();
         try (socket;
              InputStream in = socket.getInputStream();
              OutputStream rawOut = new BufferedOutputStream(socket.getOutputStream())) {
@@ -146,14 +152,18 @@ public class SmtpReceiver implements SmartLifecycle {
             }
         } catch (IOException e) {
             log.debug("SMTP connection ended: {}", e.getMessage());
+        } finally {
+            activity.connectionClosed();
         }
     }
 
     private void accept(byte[] raw, String from, List<String> recipients) {
         try {
             store.store(raw, from, recipients);
+            activity.received(from, recipients);
         } catch (RuntimeException e) {
             log.error("Failed to store incoming message", e);
+            activity.receiveError("store failed: " + e.getMessage());
         }
         forwarding.maybeForward(raw, from, recipients);
     }
