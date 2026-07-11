@@ -38,5 +38,5 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: acmemailtrap-jar
-          path: target/acmemailtrap.jar
+          path: app/target/acmemailtrap.jar
           if-no-files-found: error

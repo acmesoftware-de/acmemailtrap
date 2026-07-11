@@ -37,15 +37,29 @@ data/
     1720000000000-ab12cd34.json  derived index (subject, from, seen, ...)
 ```
 
-The `.eml` is authoritative; the `.json` is a regenerable cache. Components:
+The `.eml` is authoritative; the `.json` is a regenerable cache.
+
+### Repository layout (Maven multi-module, one jar)
+
+- `plugin-api/` - the stable plugin SPI (`MailForwarder`, `ConfigField`, ...). Pure
+  Java, no framework dependencies.
+- `plugins/` - the built-in forwarder plugins (SMTP, Webhook, Graph, Gmail, HTTP-API,
+  SES). Depend only on the plugin API; discovered as Spring beans.
+- `app/` - the runnable application (SMTP/IMAP/store/web + the React UI under
+  `app/frontend/`). Depends on the two above and repackages everything into one jar.
+
+`mvn package` at the root builds all three modules into `app/target/acmemailtrap.jar`.
+Adding a forwarder is a new bean in `plugins/` — no `app` changes, no UI changes.
+
+### Components
 
 - `smtp/SmtpReceiver` - hand-rolled catch-all SMTP server (Teil 1).
 - `store/MailStore` - the maildir-style store (Teil 2).
 - `imap/ImapServer` + `ImapSession` - the IMAP server over the same store (Teil 3).
 - `web/*Controller` - REST API; the UI is a React/TypeScript (Vite) app under
-  `frontend/`, built into the jar's `static/` by Maven (Teil 4).
+  `app/frontend/`, built into the jar's `static/` by Maven (Teil 4).
 - `smtp/MailSender` - compose and deliver into the trap (Teil 5).
-- `smtp/ForwardingService` - optional relay to a real SMTP service (Teil 6).
+- `smtp/ForwardingService` + `plugins/` - relay via a chosen forwarder plugin (Teil 6).
 
 SMTP and IMAP are hand-rolled (small socket servers) on purpose: it keeps the
 dependency surface to Spring Boot plus Jakarta Mail (used only for MIME parsing,
@@ -60,7 +74,7 @@ self-contained artifact:
 
 ```
 mvn package
-java -jar target/acmemailtrap.jar
+java -jar app/target/acmemailtrap.jar
 ```
 
 Build the backend only (skip the npm build) with `-Dskip.frontend=true`.
@@ -72,8 +86,8 @@ fonts via `@fontsource`). For a fast edit loop, run the backend and the Vite dev
 side by side — the dev server proxies `/api` to the backend on :8090:
 
 ```
-java -jar target/acmemailtrap.jar        # or: mvn spring-boot:run
-cd frontend && npm install && npm run dev # http://localhost:5173
+java -jar app/target/acmemailtrap.jar         # or: mvn -pl app -am spring-boot:run
+cd app/frontend && npm install && npm run dev  # http://localhost:5173
 ```
 
 Then open the web UI and point ACMEsuite at the SMTP port:

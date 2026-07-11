@@ -7,5 +7,5 @@ data/
 .DS_Store
 
 # frontend
-frontend/node_modules/
-frontend/dist/
+app/frontend/node_modules/
+app/frontend/dist/

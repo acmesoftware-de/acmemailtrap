@@ -12,10 +12,11 @@
     </parent>
 
     <groupId>de.acmesoftware</groupId>
-    <artifactId>acmemailtrap</artifactId>
+    <artifactId>acmemailtrap-parent</artifactId>
     <version>0.1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
     <name>ACMEmailtrap</name>
-    <description>Email trap for testing ACMEsuite: catches SMTP, stores per recipient, serves IMAP and a web UI, can forward to a real mail service.</description>
+    <description>Email trap for testing ACMEsuite: catches SMTP, stores per recipient, serves IMAP and a React web UI, forwards via pluggable channels.</description>
 
     <licenses>
         <license>
@@ -27,137 +28,33 @@
     <properties>
         <java.version>25</java.version>
         <node.version>v22.12.0</node.version>
-        <!-- set -Dskip.frontend=true to build the backend only (skips the npm build) -->
+        <!-- set -Dskip.frontend=true to build without the npm build -->
         <skip.frontend>false</skip.frontend>
     </properties>
 
-    <dependencies>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-web</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-validation</artifactId>
-        </dependency>
+    <modules>
+        <module>plugin-api</module>
+        <module>plugins</module>
+        <module>app</module>
+    </modules>
 
-        <!-- Jakarta Mail implementation: MIME parsing, composing, SMTP relay -->
-        <dependency>
-            <groupId>org.eclipse.angus</groupId>
-            <artifactId>angus-mail</artifactId>
-            <version>2.0.3</version>
-        </dependency>
-
-        <dependency>
-            <groupId>org.springframework.boot</groupId>
-            <artifactId>spring-boot-starter-test</artifactId>
-            <scope>test</scope>
-        </dependency>
-    </dependencies>
-
-    <build>
-        <finalName>acmemailtrap</finalName>
-        <plugins>
-            <plugin>
-                <groupId>org.springframework.boot</groupId>
-                <artifactId>spring-boot-maven-plugin</artifactId>
-                <executions>
-                    <!-- Generates META-INF/build-info.properties -> BuildProperties bean (version). -->
-                    <execution>
-                        <id>build-info</id>
-                        <goals>
-                            <goal>build-info</goal>
-                        </goals>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <!-- Generates git.properties -> GitProperties bean (commit, branch, build time). -->
-            <plugin>
-                <groupId>io.github.git-commit-id</groupId>
-                <artifactId>git-commit-id-maven-plugin</artifactId>
-                <version>9.0.1</version>
-                <executions>
-                    <execution>
-                        <id>git-info</id>
-                        <goals>
-                            <goal>revision</goal>
-                        </goals>
-                        <phase>initialize</phase>
-                    </execution>
-                </executions>
-                <configuration>
-                    <generateGitPropertiesFile>true</generateGitPropertiesFile>
-                    <failOnNoGitDirectory>false</failOnNoGitDirectory>
-                    <failOnUnableToExtractRepoInfo>false</failOnUnableToExtractRepoInfo>
-                    <includeOnlyProperties>
-                        <property>git.branch</property>
-                        <property>git.commit.id.abbrev</property>
-                        <property>git.commit.id.full</property>
-                        <property>git.commit.time</property>
-                        <property>git.dirty</property>
-                    </includeOnlyProperties>
-                </configuration>
-            </plugin>
-
-            <!-- Build the React/Vite frontend and fold its bundle into the jar's static/. -->
-            <plugin>
-                <groupId>com.github.eirslett</groupId>
-                <artifactId>frontend-maven-plugin</artifactId>
-                <version>1.15.1</version>
-                <configuration>
-                    <workingDirectory>frontend</workingDirectory>
-                    <installDirectory>${project.build.directory}</installDirectory>
-                    <skip>${skip.frontend}</skip>
-                </configuration>
-                <executions>
-                    <execution>
-                        <id>install-node-and-npm</id>
-                        <goals><goal>install-node-and-npm</goal></goals>
-                        <phase>generate-resources</phase>
-                        <configuration>
-                            <nodeVersion>${node.version}</nodeVersion>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>npm-install</id>
-                        <goals><goal>npm</goal></goals>
-                        <phase>generate-resources</phase>
-                        <configuration>
-                            <arguments>install</arguments>
-                        </configuration>
-                    </execution>
-                    <execution>
-                        <id>npm-build</id>
-                        <goals><goal>npm</goal></goals>
-                        <phase>generate-resources</phase>
-                        <configuration>
-                            <arguments>run build</arguments>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-resources-plugin</artifactId>
-                <executions>
-                    <execution>
-                        <id>copy-frontend-bundle</id>
-                        <phase>process-classes</phase>
-                        <goals><goal>copy-resources</goal></goals>
-                        <configuration>
-                            <skip>${skip.frontend}</skip>
-                            <outputDirectory>${project.build.outputDirectory}/static</outputDirectory>
-                            <resources>
-                                <resource>
-                                    <directory>frontend/dist</directory>
-                                </resource>
-                            </resources>
-                        </configuration>
-                    </execution>
-                </executions>
-            </plugin>
-        </plugins>
-    </build>
+    <dependencyManagement>
+        <dependencies>
+            <dependency>
+                <groupId>de.acmesoftware</groupId>
+                <artifactId>acmemailtrap-plugin-api</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>de.acmesoftware</groupId>
+                <artifactId>acmemailtrap-plugins</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.eclipse.angus</groupId>
+                <artifactId>angus-mail</artifactId>
+                <version>2.0.3</version>
+            </dependency>
+        </dependencies>
+    </dependencyManagement>
 </project>
