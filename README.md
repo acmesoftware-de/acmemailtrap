@@ -40,7 +40,8 @@ The `.eml` is authoritative; the `.json` is a regenerable cache. Components:
 - `smtp/SmtpReceiver` - hand-rolled catch-all SMTP server (Teil 1).
 - `store/MailStore` - the maildir-style store (Teil 2).
 - `imap/ImapServer` + `ImapSession` - the IMAP server over the same store (Teil 3).
-- `web/MailApiController` + `resources/static` - REST API and vanilla-JS UI (Teil 4).
+- `web/*Controller` - REST API; the UI is a React/TypeScript (Vite) app under
+  `frontend/`, built into the jar's `static/` by Maven (Teil 4).
 - `smtp/MailSender` - compose and deliver into the trap (Teil 5).
 - `smtp/ForwardingService` - optional relay to a real SMTP service (Teil 6).
 
@@ -50,10 +51,27 @@ composing and outbound relay), and avoids the javax/jakarta split of older libra
 
 ## Running
 
-Requirements: JDK 21+ and Maven.
+Requirements: JDK 25 and Maven. The frontend is built automatically by Maven
+(`frontend-maven-plugin` downloads a pinned Node, runs `npm install` + `vite build`,
+and folds the bundle into the jar's `static/`), so a single command produces one
+self-contained artifact:
 
 ```
-mvn spring-boot:run
+mvn package
+java -jar target/acmemailtrap.jar
+```
+
+Build the backend only (skip the npm build) with `-Dskip.frontend=true`.
+
+### Frontend development
+
+The UI lives in `frontend/` (React + TypeScript + Vite, Zustand for state, self-hosted
+fonts via `@fontsource`). For a fast edit loop, run the backend and the Vite dev server
+side by side — the dev server proxies `/api` to the backend on :8090:
+
+```
+java -jar target/acmemailtrap.jar        # or: mvn spring-boot:run
+cd frontend && npm install && npm run dev # http://localhost:5173
 ```
 
 Then open the web UI and point ACMEsuite at the SMTP port:

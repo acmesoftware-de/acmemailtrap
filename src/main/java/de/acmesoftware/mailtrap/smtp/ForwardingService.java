@@ -1,6 +1,5 @@
 package de.acmesoftware.mailtrap.smtp;
 
-import de.acmesoftware.mailtrap.config.MailtrapProperties;
 import de.acmesoftware.mailtrap.server.ServerActivity;
 import jakarta.mail.Address;
 import jakarta.mail.PasswordAuthentication;
@@ -29,7 +28,7 @@ public class ForwardingService {
 
     private static final Logger log = LoggerFactory.getLogger(ForwardingService.class);
 
-    private final MailtrapProperties.Forward cfg;
+    private final ForwardSettings settings;
     private final ServerActivity activity;
     private final ExecutorService pool = Executors.newFixedThreadPool(2, r -> {
         Thread t = new Thread(r, "smtp-forward");
@@ -37,36 +36,49 @@ public class ForwardingService {
         return t;
     });
 
-    public ForwardingService(MailtrapProperties props, ServerActivity activity) {
-        this.cfg = props.getForward();
+    public ForwardingService(ForwardSettings settings, ServerActivity activity) {
+        this.settings = settings;
         this.activity = activity;
     }
 
     /** Relay asynchronously if forwarding is enabled and at least one recipient matches. */
     public void maybeForward(byte[] raw, String from, List<String> recipients) {
-        if (!cfg.isEnabled() || cfg.getHost() == null || cfg.getHost().isBlank()) {
+        ForwardSettings.Settings s = settings.get();
+        if (!s.enabled() || s.host() == null || s.host().isBlank()) {
             return;
         }
-        List<String> targets = recipients.stream().filter(this::domainAllowed).toList();
+        List<String> targets = recipients.stream().filter(r -> mailboxAllowed(s, r)).toList();
         if (targets.isEmpty()) {
             return;
         }
-        pool.submit(() -> relay(raw, from, targets));
+        pool.submit(() -> relay(raw, from, targets, s));
     }
 
-    private boolean domainAllowed(String recipient) {
-        List<String> domains = cfg.getRecipientDomains();
-        if (domains == null || domains.isEmpty()) {
-            return true;
+    /**
+     * Force-relay a specific message now (Teil 6, per-message "Weiterleiten" button).
+     * Logs a WARN and does nothing if forwarding is currently disabled.
+     */
+    public boolean forwardNow(byte[] raw, String from, List<String> recipients) {
+        ForwardSettings.Settings s = settings.get();
+        if (!s.enabled() || s.host() == null || s.host().isBlank()) {
+            activity.warn("forward requested but relay is disabled -> kept local");
+            return false;
         }
-        int at = recipient.lastIndexOf('@');
-        String domain = at >= 0 ? recipient.substring(at + 1).toLowerCase(Locale.ROOT) : "";
-        return domains.stream().anyMatch(d -> d.equalsIgnoreCase(domain));
+        pool.submit(() -> relay(raw, from, recipients, s));
+        return true;
     }
 
-    private void relay(byte[] raw, String from, List<String> recipients) {
+    private boolean mailboxAllowed(ForwardSettings.Settings s, String recipient) {
+        List<String> boxes = s.mailboxes();
+        if (boxes == null || boxes.isEmpty()) {
+            return true; // empty selection = forward all
+        }
+        return boxes.stream().anyMatch(b -> b.equalsIgnoreCase(recipient));
+    }
+
+    private void relay(byte[] raw, String from, List<String> recipients, ForwardSettings.Settings cfg) {
         try {
-            Session session = buildSession();
+            Session session = buildSession(cfg);
             MimeMessage msg = new MimeMessage(session, new ByteArrayInputStream(raw));
             Address[] to = recipients.stream()
                     .map(ForwardingService::toAddress)
@@ -75,34 +87,35 @@ public class ForwardingService {
             if (to.length == 0) {
                 return;
             }
-            try (Transport transport = session.getTransport("smtp")) {
-                if (cfg.getUsername() != null && !cfg.getUsername().isBlank()) {
-                    transport.connect(cfg.getHost(), cfg.getPort(), cfg.getUsername(), cfg.getPassword());
+            try (Transport transport = session.getTransport(cfg.tls() == ForwardSettings.Tls.SSL ? "smtps" : "smtp")) {
+                if (cfg.username() != null && !cfg.username().isBlank()) {
+                    transport.connect(cfg.host(), cfg.port(), cfg.username(), cfg.password());
                 } else {
-                    transport.connect(cfg.getHost(), cfg.getPort(), null, null);
+                    transport.connect(cfg.host(), cfg.port(), null, null);
                 }
                 transport.sendMessage(msg, to);
             }
-            activity.forwarded(recipients, cfg.getHost(), cfg.getPort());
-            log.info("Forwarded message from {} to {} via {}:{}", from, recipients, cfg.getHost(), cfg.getPort());
+            activity.forwarded(recipients, cfg.host(), cfg.port());
+            log.info("Forwarded message from {} to {} via {}:{}", from, recipients, cfg.host(), cfg.port());
         } catch (Exception e) {
-            activity.forwardFailed(cfg.getHost(), e.getMessage());
+            activity.forwardFailed(cfg.host(), e.getMessage());
             log.error("Forwarding to {} failed: {}", recipients, e.getMessage());
         }
     }
 
-    private Session buildSession() {
+    private Session buildSession(ForwardSettings.Settings cfg) {
         Properties p = new Properties();
-        p.put("mail.smtp.host", cfg.getHost());
-        p.put("mail.smtp.port", String.valueOf(cfg.getPort()));
-        p.put("mail.smtp.starttls.enable", String.valueOf(cfg.isStarttls()));
-        boolean auth = cfg.getUsername() != null && !cfg.getUsername().isBlank();
+        p.put("mail.smtp.host", cfg.host());
+        p.put("mail.smtp.port", String.valueOf(cfg.port()));
+        p.put("mail.smtp.starttls.enable", String.valueOf(cfg.tls() == ForwardSettings.Tls.STARTTLS));
+        p.put("mail.smtp.ssl.enable", String.valueOf(cfg.tls() == ForwardSettings.Tls.SSL));
+        boolean auth = cfg.username() != null && !cfg.username().isBlank();
         p.put("mail.smtp.auth", String.valueOf(auth));
         if (auth) {
             return Session.getInstance(p, new jakarta.mail.Authenticator() {
                 @Override
                 protected PasswordAuthentication getPasswordAuthentication() {
-                    return new PasswordAuthentication(cfg.getUsername(), cfg.getPassword());
+                    return new PasswordAuthentication(cfg.username(), cfg.password());
                 }
             });
         }

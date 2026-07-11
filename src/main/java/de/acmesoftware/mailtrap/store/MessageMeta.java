@@ -19,9 +19,11 @@ public record MessageMeta(
         boolean seen,
         List<String> recipients,
         /** Originating ACMEsuite module from the {@code X-ACMEsuite-Module} header, or "". */
-        String mod
+        String mod,
+        /** Short one-line preview of the body for the message list. */
+        String snippet
 ) {
     public MessageMeta withSeen(boolean newSeen) {
-        return new MessageMeta(id, from, subject, receivedAt, size, newSeen, recipients, mod);
+        return new MessageMeta(id, from, subject, receivedAt, size, newSeen, recipients, mod, snippet);
     }
 }

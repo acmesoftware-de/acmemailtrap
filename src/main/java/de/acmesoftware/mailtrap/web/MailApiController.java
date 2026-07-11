@@ -1,6 +1,7 @@
 package de.acmesoftware.mailtrap.web;
 
 import de.acmesoftware.mailtrap.config.MailtrapProperties;
+import de.acmesoftware.mailtrap.smtp.ForwardingService;
 import de.acmesoftware.mailtrap.smtp.MailSender;
 import de.acmesoftware.mailtrap.store.MailStore;
 import de.acmesoftware.mailtrap.store.MailboxInfo;
@@ -34,11 +35,14 @@ public class MailApiController {
 
     private final MailStore store;
     private final MailSender sender;
+    private final ForwardingService forwarding;
     private final MailtrapProperties props;
 
-    public MailApiController(MailStore store, MailSender sender, MailtrapProperties props) {
+    public MailApiController(MailStore store, MailSender sender, ForwardingService forwarding,
+                             MailtrapProperties props) {
         this.store = store;
         this.sender = sender;
+        this.forwarding = forwarding;
         this.props = props;
     }
 
@@ -100,6 +104,16 @@ public class MailApiController {
         return store.setSeen(mailbox, id, seen)
                 ? ResponseEntity.noContent().build()
                 : ResponseEntity.notFound().build();
+    }
+
+    @PostMapping("/mailboxes/{mailbox}/messages/{id}/forward")
+    public ResponseEntity<Map<String, Object>> forward(@PathVariable String mailbox, @PathVariable String id) {
+        return store.getMessage(mailbox, id)
+                .map(msg -> {
+                    boolean relayed = forwarding.forwardNow(msg.raw(), msg.meta().from(), msg.meta().recipients());
+                    return ResponseEntity.ok(Map.<String, Object>of("relayed", relayed));
+                })
+                .orElseGet(() -> ResponseEntity.notFound().build());
     }
 
     @DeleteMapping("/mailboxes/{mailbox}/messages/{id}")

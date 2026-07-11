@@ -5,3 +5,7 @@ data/
 *.iml
 .vscode/
 .DS_Store
+
+# frontend
+frontend/node_modules/
+frontend/dist/

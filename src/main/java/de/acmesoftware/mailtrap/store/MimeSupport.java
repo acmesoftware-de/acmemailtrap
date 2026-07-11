@@ -76,6 +76,14 @@ public final class MimeSupport {
     public record Bodies(String text, String html, List<StoredMessage.Attachment> attachments) {
     }
 
+    /** Short one-line preview from the body: first text line, else de-tagged HTML. */
+    public static String snippet(MimeMessage msg, int maxLen) {
+        Bodies b = extract(msg);
+        String source = !b.text().isBlank() ? b.text() : b.html().replaceAll("<[^>]+>", " ");
+        String oneLine = source.replaceAll("\\s+", " ").trim();
+        return oneLine.length() > maxLen ? oneLine.substring(0, maxLen).trim() + "…" : oneLine;
+    }
+
     public static Bodies extract(MimeMessage msg) {
         StringBuilder text = new StringBuilder();
         StringBuilder html = new StringBuilder();

@@ -119,8 +119,9 @@ public class MailStore {
         long received = parsed != null ? MimeSupport.dateMillis(parsed) : System.currentTimeMillis();
         String mod = parsed != null
                 ? MimeSupport.firstHeader(parsed, "X-ACMEsuite-Module").toLowerCase(Locale.ROOT) : "";
+        String snippet = parsed != null ? MimeSupport.snippet(parsed, 140) : "";
         List<String> normalized = recipients.stream().map(MailStore::normalizeAddress).distinct().toList();
-        return new MessageMeta(id, from, subject, received, raw.length, false, normalized, mod);
+        return new MessageMeta(id, from, subject, received, raw.length, false, normalized, mod, snippet);
     }
 
     private void writeMessage(String address, MessageMeta meta, byte[] raw, boolean sent, String label)
@@ -455,7 +456,7 @@ public class MailStore {
         try {
             return regenerateMeta(box, id, Files.readAllBytes(box.resolve(safeId(id) + ".eml")));
         } catch (IOException e) {
-            return new MessageMeta(id, "", "", 0L, 0L, false, List.of(), "");
+            return new MessageMeta(id, "", "", 0L, 0L, false, List.of(), "", "");
         }
     }
 
@@ -464,17 +465,19 @@ public class MailStore {
         String subject = "";
         long received = System.currentTimeMillis();
         String mod = "";
+        String snippet = "";
         try {
             MimeMessage parsed = MimeSupport.parse(raw);
             from = MimeSupport.from(parsed);
             subject = MimeSupport.subject(parsed);
             received = MimeSupport.dateMillis(parsed);
             mod = MimeSupport.firstHeader(parsed, "X-ACMEsuite-Module").toLowerCase(Locale.ROOT);
+            snippet = MimeSupport.snippet(parsed, 140);
         } catch (MessagingException e) {
             // keep defaults
         }
         String address = readAddress(box).orElse(box.getFileName().toString());
-        MessageMeta meta = new MessageMeta(id, from, subject, received, raw.length, false, List.of(address), mod);
+        MessageMeta meta = new MessageMeta(id, from, subject, received, raw.length, false, List.of(address), mod, snippet);
         try {
             writeMeta(box, meta);
         } catch (IOException e) {

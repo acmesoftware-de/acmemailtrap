@@ -1,0 +1,82 @@
+/* Design tokens from the ACMEmailtrap handoff. Accent is set inline per-app so it
+   stays runtime-switchable; theme flips via the data-mode attribute. */
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+}
+
+body {
+  font-family: 'Archivo', system-ui, sans-serif;
+  background: #0e0f11;
+}
+
+.acme-app {
+  --accent: #6e56cf;
+  --bg: #0e0f11;
+  --panel: #17181c;
+  --panel2: #1e2025;
+  --line: rgba(255, 255, 255, 0.09);
+  --line2: rgba(255, 255, 255, 0.15);
+  --ink: #f4f3ef;
+  --dim: rgba(255, 255, 255, 0.54);
+  --faint: rgba(255, 255, 255, 0.34);
+  --chip: rgba(255, 255, 255, 0.05);
+  --shadow: rgba(0, 0, 0, 0.45);
+}
+
+.acme-app[data-mode='light'] {
+  --bg: #f1efe9;
+  --panel: #ffffff;
+  --panel2: #f6f4ef;
+  --line: rgba(0, 0, 0, 0.1);
+  --line2: rgba(0, 0, 0, 0.18);
+  --ink: #15161a;
+  --dim: rgba(0, 0, 0, 0.56);
+  --faint: rgba(0, 0, 0, 0.4);
+  --chip: rgba(0, 0, 0, 0.045);
+  --shadow: rgba(0, 0, 0, 0.14);
+}
+
+.acme-app ::-webkit-scrollbar {
+  height: 9px;
+  width: 9px;
+}
+.acme-app ::-webkit-scrollbar-thumb {
+  background: var(--line2);
+}
+.acme-app ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+button,
+input,
+select,
+textarea {
+  font-family: inherit;
+}
+
+@keyframes acmefade {
+  from {
+    opacity: 0;
+    transform: translateY(-5px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+@keyframes acmepulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.3;
+  }
+}
