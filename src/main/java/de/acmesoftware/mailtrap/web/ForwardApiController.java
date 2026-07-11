@@ -1,5 +1,8 @@
 package de.acmesoftware.mailtrap.web;
 
+import de.acmesoftware.mailtrap.forward.ConfigField;
+import de.acmesoftware.mailtrap.forward.ForwarderRegistry;
+import de.acmesoftware.mailtrap.forward.MailForwarder;
 import de.acmesoftware.mailtrap.smtp.ForwardSettings;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PutMapping;
@@ -7,56 +10,110 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
- * Runtime forwarding configuration for the design's Weiterleitung view (Teil 6).
- * The password is never returned; an empty password on write keeps the stored one.
+ * Runtime forwarding configuration for the design's Weiterleitung view (Teil 6). Exposes
+ * the available forwarder plugins and their schemas, plus the current selection/config.
+ * Secret values are never returned; a blank secret on write keeps the stored one.
  */
 @RestController
 @RequestMapping("/api/forward")
 public class ForwardApiController {
 
     private final ForwardSettings settings;
+    private final ForwarderRegistry registry;
 
-    public ForwardApiController(ForwardSettings settings) {
+    public ForwardApiController(ForwardSettings settings, ForwarderRegistry registry) {
         this.settings = settings;
+        this.registry = registry;
     }
 
-    /** Wire view of the settings; password is masked out. */
+    public record ProviderView(String id, String displayName, String kind, List<ConfigField> schema) {
+    }
+
+    /** The installed forwarder plugins and their config schemas (for the UI). */
+    @GetMapping("/providers")
+    public List<ProviderView> providers() {
+        return registry.all().stream()
+                .map(f -> new ProviderView(f.id(), f.displayName(), f.kind().name(), f.configSchema()))
+                .toList();
+    }
+
     public record ForwardView(
-            boolean enabled, String host, int port, String username,
-            boolean hasPassword, String tls, List<String> mailboxes) {
+            boolean enabled, String forwarderId, String host, int port, String username,
+            boolean hasPassword, String tls, List<String> mailboxes, Map<String, String> values) {
     }
 
     public record ForwardUpdate(
-            boolean enabled, String host, Integer port, String username,
-            String password, String tls, List<String> mailboxes) {
+            boolean enabled, String forwarderId, String host, Integer port, String username,
+            String password, String tls, List<String> mailboxes, Map<String, String> values) {
     }
 
     @GetMapping
     public ForwardView get() {
         ForwardSettings.Settings s = settings.get();
-        return new ForwardView(s.enabled(), s.host(), s.port(), s.username(),
-                s.password() != null && !s.password().isBlank(), s.tls().name(), s.mailboxes());
+        return new ForwardView(
+                s.enabled(), s.forwarderId(), s.host(), s.port(), s.username(),
+                s.password() != null && !s.password().isBlank(), s.tls().name(),
+                s.mailboxes(), maskSecrets(s.forwarderId(), s.values()));
     }
 
     @PutMapping
     public ForwardView update(@RequestBody ForwardUpdate u) {
         ForwardSettings.Settings cur = settings.get();
-        // Blank password on write keeps the currently stored one.
+        String forwarderId = u.forwarderId() != null ? u.forwarderId() : cur.forwarderId();
+        // Blank SMTP password on write keeps the currently stored one.
         String password = (u.password() == null || u.password().isBlank()) ? cur.password() : u.password();
         ForwardSettings.Tls tls = parseTls(u.tls(), cur.tls());
-        ForwardSettings.Settings next = new ForwardSettings.Settings(
+        Map<String, String> values = mergeValues(forwarderId, cur.values(), u.values());
+
+        settings.set(new ForwardSettings.Settings(
                 u.enabled(),
+                forwarderId,
                 u.host() != null ? u.host() : cur.host(),
                 u.port() != null ? u.port() : cur.port(),
                 u.username() != null ? u.username() : cur.username(),
                 password,
                 tls,
-                u.mailboxes() != null ? List.copyOf(u.mailboxes()) : cur.mailboxes());
-        settings.set(next);
+                u.mailboxes() != null ? List.copyOf(u.mailboxes()) : cur.mailboxes(),
+                values));
         return get();
+    }
+
+    /** Blank incoming secret values keep the stored ones (per the forwarder's schema). */
+    private Map<String, String> mergeValues(String forwarderId, Map<String, String> current, Map<String, String> incoming) {
+        if (incoming == null) {
+            return current == null ? Map.of() : current;
+        }
+        Map<String, String> merged = new LinkedHashMap<>(current == null ? Map.of() : current);
+        for (var e : incoming.entrySet()) {
+            boolean secret = isSecret(forwarderId, e.getKey());
+            if (secret && (e.getValue() == null || e.getValue().isBlank())) {
+                continue; // keep existing secret
+            }
+            merged.put(e.getKey(), e.getValue());
+        }
+        return merged;
+    }
+
+    private Map<String, String> maskSecrets(String forwarderId, Map<String, String> values) {
+        if (values == null || values.isEmpty()) {
+            return Map.of();
+        }
+        Map<String, String> out = new LinkedHashMap<>();
+        for (var e : values.entrySet()) {
+            out.put(e.getKey(), isSecret(forwarderId, e.getKey()) ? "" : e.getValue());
+        }
+        return out;
+    }
+
+    private boolean isSecret(String forwarderId, String key) {
+        return registry.byId(forwarderId)
+                .map(MailForwarder::configSchema).orElse(List.of()).stream()
+                .anyMatch(f -> f.key().equals(key) && f.secret());
     }
 
     private static ForwardSettings.Tls parseTls(String value, ForwardSettings.Tls fallback) {

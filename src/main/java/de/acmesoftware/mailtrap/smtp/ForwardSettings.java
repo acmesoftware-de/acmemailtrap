@@ -4,6 +4,7 @@ import de.acmesoftware.mailtrap.config.MailtrapProperties;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
+import java.util.Map;
 
 /**
  * Runtime-editable forwarding configuration (Teil 6). Seeded from
@@ -16,10 +17,14 @@ public class ForwardSettings {
 
     public enum Tls { STARTTLS, SSL, NONE }
 
-    /** Immutable snapshot of the current settings. */
+    /**
+     * Immutable snapshot of the current settings. The SMTP-specific fields
+     * (host/port/username/password/tls) are the config for the built-in SMTP forwarder;
+     * other forwarders (webhook, graph, ...) use {@code values} keyed by their schema.
+     */
     public record Settings(
-            boolean enabled, String host, int port, String username, String password,
-            Tls tls, List<String> mailboxes) {
+            boolean enabled, String forwarderId, String host, int port, String username, String password,
+            Tls tls, List<String> mailboxes, Map<String, String> values) {
     }
 
     private volatile Settings current;
@@ -27,8 +32,8 @@ public class ForwardSettings {
     public ForwardSettings(MailtrapProperties props) {
         MailtrapProperties.Forward f = props.getForward();
         this.current = new Settings(
-                f.isEnabled(), f.getHost(), f.getPort(), f.getUsername(), f.getPassword(),
-                f.isStarttls() ? Tls.STARTTLS : Tls.NONE, List.of());
+                f.isEnabled(), "smtp", f.getHost(), f.getPort(), f.getUsername(), f.getPassword(),
+                f.isStarttls() ? Tls.STARTTLS : Tls.NONE, List.of(), Map.of());
     }
 
     public Settings get() {

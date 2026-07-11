@@ -81,13 +81,13 @@ public class ServerActivity {
         log("RECV", "250 OK queued for " + recipients.size() + " rcpt (composer)");
     }
 
-    public void forwarded(List<String> recipients, String host, int port) {
+    public void forwarded(List<String> recipients, String via) {
         forwards.incrementAndGet();
-        log("SEND", "relayed " + recipients.size() + " rcpt -> " + host + ":" + port);
+        log("SEND", "relayed " + recipients.size() + " rcpt via " + via);
     }
 
-    public void forwardFailed(String host, String msg) {
-        log("ERR", "relay to " + host + " failed: " + msg);
+    public void forwardFailed(String via, String msg) {
+        log("ERR", "relay via " + via + " failed: " + msg);
     }
 
     public void warn(String msg) {
