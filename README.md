@@ -1,5 +1,7 @@
 # ACMEmailtrap
 
+[![CI](https://github.com/acmesoftware-de/acmemailtrap/actions/workflows/ci.yml/badge.svg)](https://github.com/acmesoftware-de/acmemailtrap/actions/workflows/ci.yml)
+
 A self-contained email trap for testing the mail flows of **ACMEsuite** (and anything
 else that sends or reads mail) without touching real email. It catches SMTP, stores
 every message per recipient on disk, serves those mailboxes over IMAP and a web UI,

@@ -1,5 +1,6 @@
 package de.acmesoftware.mailtrap.imap;
 
+import de.acmesoftware.mailtrap.config.BuildInfo;
 import de.acmesoftware.mailtrap.config.MailtrapProperties;
 import de.acmesoftware.mailtrap.server.ServerActivity;
 import de.acmesoftware.mailtrap.store.MailStore;
@@ -32,16 +33,18 @@ public class ImapServer implements SmartLifecycle {
     private final MailtrapProperties.Imap cfg;
     private final MailStore store;
     private final ServerActivity activity;
+    private final BuildInfo build;
 
     private volatile boolean running;
     private ServerSocket serverSocket;
     private Thread acceptThread;
     private ExecutorService connections;
 
-    public ImapServer(MailtrapProperties props, MailStore store, ServerActivity activity) {
+    public ImapServer(MailtrapProperties props, MailStore store, ServerActivity activity, BuildInfo build) {
         this.cfg = props.getImap();
         this.store = store;
         this.activity = activity;
+        this.build = build;
     }
 
     @Override
@@ -67,14 +70,14 @@ public class ImapServer implements SmartLifecycle {
         acceptThread.setDaemon(true);
         acceptThread.start();
         activity.markImapUp(cfg.getPort());
-        log.info("IMAP server listening on {}:{}", cfg.getBind(), cfg.getPort());
+        log.info("IMAP server listening on {}:{} — ACMEmailtrap {}", cfg.getBind(), cfg.getPort(), build.label());
     }
 
     private void acceptLoop() {
         while (running) {
             try {
                 Socket socket = serverSocket.accept();
-                connections.submit(() -> new ImapSession(socket, store, activity).run());
+                connections.submit(() -> new ImapSession(socket, store, activity, build).run());
             } catch (IOException e) {
                 if (running) {
                     log.warn("IMAP accept failed: {}", e.getMessage());

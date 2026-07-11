@@ -1,5 +1,6 @@
 package de.acmesoftware.mailtrap.smtp;
 
+import de.acmesoftware.mailtrap.config.BuildInfo;
 import de.acmesoftware.mailtrap.config.MailtrapProperties;
 import de.acmesoftware.mailtrap.server.ServerActivity;
 import de.acmesoftware.mailtrap.store.MailStore;
@@ -40,6 +41,7 @@ public class SmtpReceiver implements SmartLifecycle {
     private final MailStore store;
     private final ForwardingService forwarding;
     private final ServerActivity activity;
+    private final BuildInfo build;
 
     private volatile boolean running;
     private ServerSocket serverSocket;
@@ -47,12 +49,13 @@ public class SmtpReceiver implements SmartLifecycle {
     private ExecutorService connections;
 
     public SmtpReceiver(MailtrapProperties props, MailStore store, ForwardingService forwarding,
-                        ServerActivity activity) {
+                        ServerActivity activity, BuildInfo build) {
         this.cfg = props.getSmtp();
         this.hostname = props.getSmtp().getHostname();
         this.store = store;
         this.forwarding = forwarding;
         this.activity = activity;
+        this.build = build;
     }
 
     @Override
@@ -78,7 +81,7 @@ public class SmtpReceiver implements SmartLifecycle {
         acceptThread.setDaemon(true);
         acceptThread.start();
         activity.markSmtpUp(cfg.getPort());
-        log.info("SMTP receiver listening on {}:{}", cfg.getBind(), cfg.getPort());
+        log.info("SMTP receiver listening on {}:{} — ACMEmailtrap {}", cfg.getBind(), cfg.getPort(), build.label());
     }
 
     private void acceptLoop() {
@@ -101,7 +104,7 @@ public class SmtpReceiver implements SmartLifecycle {
              OutputStream rawOut = new BufferedOutputStream(socket.getOutputStream())) {
             socket.setSoTimeout(60_000);
             Writer out = new Writer(rawOut);
-            out.line("220 " + hostname + " ACMEmailtrap ready");
+            out.line("220 " + hostname + " ACMEmailtrap " + build.label() + " ready");
 
             String from = null;
             List<String> recipients = new ArrayList<>();

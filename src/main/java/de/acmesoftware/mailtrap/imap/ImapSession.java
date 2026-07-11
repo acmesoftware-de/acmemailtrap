@@ -1,5 +1,6 @@
 package de.acmesoftware.mailtrap.imap;
 
+import de.acmesoftware.mailtrap.config.BuildInfo;
 import de.acmesoftware.mailtrap.server.ServerActivity;
 import de.acmesoftware.mailtrap.store.MailStore;
 import de.acmesoftware.mailtrap.store.MailboxInfo;
@@ -38,6 +39,7 @@ class ImapSession {
     private final Socket socket;
     private final MailStore store;
     private final ServerActivity activity;
+    private final BuildInfo build;
 
     private boolean authenticated;
     private String account = "";        // username; INBOX resolves to this address
@@ -45,10 +47,11 @@ class ImapSession {
     private boolean readOnly;
     private List<MessageMeta> snapshot = List.of(); // ascending by receivedAt then id
 
-    ImapSession(Socket socket, MailStore store, ServerActivity activity) {
+    ImapSession(Socket socket, MailStore store, ServerActivity activity, BuildInfo build) {
         this.socket = socket;
         this.store = store;
         this.activity = activity;
+        this.build = build;
     }
 
     void run() {
@@ -57,7 +60,7 @@ class ImapSession {
              InputStream in = socket.getInputStream();
              OutputStream out = new BufferedOutputStream(socket.getOutputStream())) {
             socket.setSoTimeout(300_000);
-            writeLine(out, "* OK ACMEmailtrap IMAP4rev1 ready");
+            writeLine(out, "* OK ACMEmailtrap IMAP4rev1 " + build.label() + " ready");
             String line;
             while ((line = readLine(in)) != null) {
                 if (!dispatch(line, out)) {

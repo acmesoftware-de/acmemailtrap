@@ -12,6 +12,7 @@ export default function ServerView() {
   const server = useStore((s) => s.server)
   const logs = useStore((s) => s.logs)
   const accent = useStore((s) => s.accent)
+  const build = useStore((s) => s.build)
 
   const cards: ServerCard[] = server
     ? [
@@ -81,6 +82,31 @@ export default function ServerView() {
             ))}
           </div>
         </div>
+        {build && (
+          <div style={{ background: 'var(--panel)', border: '1px solid var(--line)', padding: '14px 20px', flex: 'none' }}>
+            <div style={{ font: "700 9.5px 'Space Mono'", letterSpacing: '.08em', color: 'var(--faint)' }}>BUILD</div>
+            <div style={{ marginTop: 10, display: 'flex', flexDirection: 'column', gap: 8, font: "400 12px 'Space Mono'", color: 'var(--dim)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Version</span>
+                <span style={{ color: 'var(--ink)' }}>{build.version}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Commit</span>
+                <span style={{ color: 'var(--ink)' }}>{build.commit}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                <span>Branch</span>
+                <span style={{ color: 'var(--ink)' }}>{build.branch || '—'}</span>
+              </div>
+              {build.buildTime && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span>Gebaut</span>
+                  <span style={{ color: 'var(--ink)' }}>{new Date(build.buildTime).toLocaleString('de-DE')}</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
       </div>
 
       <div style={{ flex: 1, minWidth: 0, background: 'var(--panel)', border: '1px solid var(--line)', display: 'flex', flexDirection: 'column' }}>

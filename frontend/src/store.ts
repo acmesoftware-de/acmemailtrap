@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { api } from './api'
 import { ACCENT_DEFAULT } from './format'
 import type {
+  BuildInfo,
   ForwardConfig,
   Filter,
   LogEntry,
@@ -51,6 +52,7 @@ interface State {
   server: ServerInfo | null
   logs: LogEntry[]
   forward: ForwardConfig | null
+  build: BuildInfo | null
 
   comp: Comp
   compFlash: string
@@ -98,6 +100,7 @@ export const useStore = create<State>((set, get) => ({
   server: null,
   logs: [],
   forward: null,
+  build: null,
 
   comp: emptyComp,
   compFlash: '',
@@ -113,6 +116,11 @@ export const useStore = create<State>((set, get) => ({
   },
 
   init: async () => {
+    try {
+      set({ build: await api.version() })
+    } catch {
+      // build info is best-effort
+    }
     await get().refresh()
     const boxes = get().mailboxes
     const first = boxes.find((b) => !b.sent) ?? boxes[0]

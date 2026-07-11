@@ -73,6 +73,14 @@ export interface ForwardConfig {
   mailboxes: string[]
 }
 
+export interface BuildInfo {
+  version: string
+  commit: string
+  branch: string
+  buildTime: number | null
+  label: string
+}
+
 export type Section = 'MAIL' | 'SRV' | 'FWD' | 'NEW'
 export type ReadView = 'html' | 'text' | 'raw'
 export type Filter = 'alle' | 'unread'

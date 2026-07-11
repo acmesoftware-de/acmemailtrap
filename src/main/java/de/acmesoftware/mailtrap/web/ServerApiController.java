@@ -1,5 +1,6 @@
 package de.acmesoftware.mailtrap.web;
 
+import de.acmesoftware.mailtrap.config.BuildInfo;
 import de.acmesoftware.mailtrap.config.MailtrapProperties;
 import de.acmesoftware.mailtrap.server.ServerActivity;
 import de.acmesoftware.mailtrap.store.MailStore;
@@ -24,11 +25,23 @@ public class ServerApiController {
     private final ServerActivity activity;
     private final MailStore store;
     private final MailtrapProperties props;
+    private final BuildInfo build;
 
-    public ServerApiController(ServerActivity activity, MailStore store, MailtrapProperties props) {
+    public ServerApiController(ServerActivity activity, MailStore store, MailtrapProperties props,
+                               BuildInfo build) {
         this.activity = activity;
         this.store = store;
         this.props = props;
+        this.build = build;
+    }
+
+    /** Build identity branded into every piece: version, commit, branch, build time. */
+    @GetMapping("/version")
+    public BuildInfoView version() {
+        return new BuildInfoView(build.version(), build.commit(), build.branch(), build.buildTime(), build.label());
+    }
+
+    public record BuildInfoView(String version, String commit, String branch, Long buildTime, String label) {
     }
 
     @GetMapping("/server")

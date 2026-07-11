@@ -1,4 +1,5 @@
 import type {
+  BuildInfo,
   ForwardConfig,
   LogEntry,
   MailboxInfo,
@@ -46,6 +47,7 @@ export const api = {
   sendMail: (body: { from: string; to: string[]; subject: string; text: string }) =>
     send<{ id: string }>('POST', '/api/send', body),
   stats: () => get<Stats>('/api/stats'),
+  version: () => get<BuildInfo>('/api/version'),
   server: () => get<ServerInfo>('/api/server'),
   logs: (limit = 100) => get<LogEntry[]>(`/api/logs?limit=${limit}`),
   forward: () => get<ForwardConfig>('/api/forward'),

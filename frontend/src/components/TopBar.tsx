@@ -17,6 +17,7 @@ const BARS = [
 export default function TopBar() {
   const section = useStore((s) => s.section)
   const mode = useStore((s) => s.mode)
+  const build = useStore((s) => s.build)
   const setSection = useStore((s) => s.setSection)
   const toggleTheme = useStore((s) => s.toggleTheme)
 
@@ -40,6 +41,14 @@ export default function TopBar() {
       <span style={{ font: "700 13px 'Archivo'", letterSpacing: '.06em', color: 'var(--ink)', marginLeft: 9 }}>
         ACME<span style={{ color: 'var(--accent)', fontWeight: 500 }}>MAILTRAP</span>
       </span>
+      {build && (
+        <span
+          title={`${build.branch}${build.buildTime ? ' · ' + new Date(build.buildTime).toLocaleString('de-DE') : ''}`}
+          style={{ font: "9px 'Space Mono'", color: 'var(--faint)', marginLeft: 8, whiteSpace: 'nowrap' }}
+        >
+          v{build.version} · {build.commit}
+        </span>
+      )}
       <div style={{ width: 1, height: 22, background: 'var(--line)', margin: '0 18px' }} />
       <div style={{ display: 'flex', alignSelf: 'stretch', alignItems: 'stretch' }}>
         {TABS.map(([code, key]) => {
