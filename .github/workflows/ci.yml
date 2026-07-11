@@ -1,0 +1,42 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      # frontend-maven-plugin downloads its own pinned Node, but caching npm's
+      # package store keeps `npm install` fast across runs.
+      - name: Cache npm store
+        uses: actions/cache@v4
+        with:
+          path: ~/.npm
+          key: npm-${{ hashFiles('frontend/package-lock.json') }}
+          restore-keys: npm-
+
+      # Builds the React bundle (via the Maven frontend plugin), packages the jar
+      # and runs the tests — the whole project in one command.
+      - name: Build and test
+        run: mvn -B verify
+
+      - name: Upload jar
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: acmemailtrap-jar
+          path: target/acmemailtrap.jar
+          if-no-files-found: error
