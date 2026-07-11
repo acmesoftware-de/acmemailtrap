@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ACMEmailtrap</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="topbar">
+    <div class="brand">
+        <span class="logo">✉</span>
+        <span class="name">ACMEmailtrap</span>
+    </div>
+    <div class="ports" id="ports"></div>
+    <div class="actions">
+        <button id="composeBtn" class="btn primary">Verfassen</button>
+        <button id="refreshBtn" class="btn" title="Aktualisieren">↻</button>
+    </div>
+</header>
+
+<main class="layout">
+    <section class="col mailboxes">
+        <h2>Postfächer <span class="hint" id="mailboxCount"></span></h2>
+        <ul id="mailboxList" class="list"></ul>
+    </section>
+
+    <section class="col messages">
+        <h2 id="messagesTitle">Nachrichten</h2>
+        <ul id="messageList" class="list"></ul>
+    </section>
+
+    <section class="col detail">
+        <div id="detailEmpty" class="empty">Keine Nachricht ausgewählt</div>
+        <article id="detail" class="hidden">
+            <div class="detail-head">
+                <h3 id="dSubject"></h3>
+                <div class="meta">
+                    <div><b>Von:</b> <span id="dFrom"></span></div>
+                    <div><b>An:</b> <span id="dTo"></span></div>
+                    <div><b>Datum:</b> <span id="dDate"></span></div>
+                </div>
+                <div class="detail-actions">
+                    <button id="deleteMsgBtn" class="btn danger small">Löschen</button>
+                    <a id="rawLink" class="btn small" target="_blank" rel="noopener">Roh (.eml)</a>
+                </div>
+            </div>
+            <div class="tabs">
+                <button class="tab active" data-tab="html">HTML</button>
+                <button class="tab" data-tab="text">Text</button>
+            </div>
+            <div id="attachments" class="attachments"></div>
+            <div id="bodyHtml" class="body"></div>
+            <pre id="bodyText" class="body hidden"></pre>
+        </article>
+    </section>
+</main>
+
+<div id="composeModal" class="modal hidden">
+    <div class="modal-box">
+        <h3>Neue Nachricht</h3>
+        <label>Von<input id="cFrom" type="text" placeholder="absender@acmesuite.test"></label>
+        <label>An (Komma-getrennt)<input id="cTo" type="text" placeholder="empfaenger@kunde.test"></label>
+        <label>Betreff<input id="cSubject" type="text"></label>
+        <label>Text<textarea id="cText" rows="6"></textarea></label>
+        <div class="modal-actions">
+            <button id="cCancel" class="btn">Abbrechen</button>
+            <button id="cSend" class="btn primary">Senden</button>
+        </div>
+        <div id="cError" class="error"></div>
+    </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

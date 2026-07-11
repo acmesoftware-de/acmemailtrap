@@ -1,0 +1,43 @@
+server:
+  port: 8090
+
+spring:
+  application:
+    name: acmemailtrap
+  servlet:
+    multipart:
+      max-file-size: 25MB
+      max-request-size: 25MB
+
+acmemailtrap:
+  # Root directory of the maildir-style store. One folder per recipient mailbox.
+  data-dir: ./data
+
+  smtp:
+    enabled: true
+    bind: 0.0.0.0
+    port: 2525
+    # Reject DATA larger than this many bytes (default 25 MiB).
+    max-message-size: 26214400
+    # Greeting hostname announced in the SMTP banner.
+    hostname: acmemailtrap.local
+
+  imap:
+    enabled: true
+    bind: 0.0.0.0
+    port: 1143
+
+  forward:
+    # Teil 6: relay every caught mail on to a real SMTP service. Off by default.
+    enabled: false
+    host: ""
+    port: 587
+    username: ""
+    password: ""
+    starttls: true
+    # Only forward mail addressed to these recipient domains. Empty = forward all.
+    recipient-domains: []
+
+logging:
+  level:
+    de.acmesoftware.mailtrap: INFO
