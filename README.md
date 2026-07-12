@@ -2,28 +2,66 @@
 
 [![CI](https://github.com/acmesoftware-de/acmemailtrap/actions/workflows/ci.yml/badge.svg)](https://github.com/acmesoftware-de/acmemailtrap/actions/workflows/ci.yml)
 
-A self-contained email trap for testing the mail flows of **ACMEsuite** (and anything
-else that sends or reads mail) without touching real email. It catches SMTP, stores
-every message per recipient on disk, serves those mailboxes over IMAP and a web UI,
-lets you send test messages, and can optionally forward to a real mail service.
+A self-contained **email trap** for testing the mail flows of **ACMEsuite** — and
+anything else that sends or reads mail — without touching real email. It catches SMTP,
+stores every message per recipient on disk, serves those mailboxes over IMAP and a web
+UI, lets you compose test mail, searches everything full-text, and can optionally forward
+to a real mail service through pluggable channels.
 
-It is intentionally small and dependency-light: one Spring Boot process, no external
-message broker, no database, no CDN. The on-disk store is plain files you can inspect.
+Think MailHog/Mailpit, but built for the ACMEsuite ecosystem: one Spring Boot process,
+**no database, no message broker, no CDN**. The on-disk store is plain files you can
+inspect, and the whole thing ships as a single runnable jar.
 
-## What it does
+## Features
 
-1. **Catch SMTP** - a permissive SMTP server accepts mail from any client for any
-   recipient (no auth, every recipient accepted).
-2. **Store per recipient** - each caught message is written into one folder per
-   envelope recipient, as raw `.eml` plus a small JSON index sidecar.
-3. **Serve IMAP** - a minimal IMAP4rev1 server lets another tool read the mailboxes
-   back (LOGIN, LIST, SELECT, FETCH incl. ENVELOPE and BODY, SEARCH, STORE \Seen).
-4. **Web UI** - a three-pane inbox (mailboxes / messages / detail) sorted by recipient
-   mailbox, with HTML and text views, attachments, and raw source.
-5. **Send** - compose and "send" a message; it is delivered straight into the
-   recipients' mailboxes (which show up as new mailboxes) and can be relayed onward.
-6. **Forward** - optionally relay every caught message to a real SMTP service, so a
-   test can also verify that mail leaves the building.
+- **Catch-all SMTP** (`:1025`) — accepts mail from any client for any recipient.
+- **Per-recipient store** — each message is written as raw `.eml` under one folder per
+  envelope recipient; the filesystem is the single source of truth.
+- **IMAP** (`:1143`) — read the mailboxes back from any client (LOGIN, LIST, SELECT,
+  FETCH incl. ENVELOPE/BODY, SEARCH, STORE \Seen).
+- **Web UI** — a three-pane inbox (mailboxes / messages / reader) with HTML, text and
+  raw-source views, attachments, per-module colours, light/dark, and a **⌘K command
+  palette**.
+- **Full-text search** — embedded Apache Lucene over subject, sender, body and mailbox;
+  no external search service.
+- **Compose** — send test mail straight into the trap (new recipients appear as new
+  mailboxes) with a copy in *Sent*.
+- **Pluggable forwarding** — relay caught mail to a real service via a `MailForwarder`
+  plugin: **SMTP/TLS, Webhook, Microsoft 365 (Graph), Gmail, Postmark/SendGrid, Amazon
+  SES**. Off by default.
+- **Optional login** — protect a shared instance with a local password or GitHub/GitLab
+  OAuth, gated by a local allowlist. Off by default (open on localhost).
+
+## Quick start
+
+Requirements: **JDK 25** and Maven. The React frontend is built automatically by Maven
+(a pinned Node is downloaded, `vite build` runs, and the bundle is folded into the jar),
+so one command produces one self-contained artifact:
+
+```bash
+mvn package
+java -jar app/target/acmemailtrap.jar
+```
+
+| Surface | Default                 |
+|---------|-------------------------|
+| Web UI  | http://localhost:8090   |
+| SMTP    | localhost:1025          |
+| IMAP    | localhost:1143          |
+
+Point ACMEsuite (or anything) at the SMTP port, or inject a message from the shell:
+
+```bash
+printf 'From: alice@acmesuite.test\r\nTo: bob@kunde.test\r\nSubject: Hello\r\n\r\nBody\r\n' \
+  | curl -s --url 'smtp://localhost:1025' \
+    --mail-from alice@acmesuite.test --mail-rcpt bob@kunde.test --upload-file -
+```
+
+It appears in the UI under the `bob@kunde.test` mailbox and is readable over IMAP (log in
+as `bob@kunde.test` with any password; the mailbox is `INBOX`).
+
+> Prebuilt jar: see the [latest release](https://github.com/acmesoftware-de/acmemailtrap/releases).
+> Build the backend only (skip the npm build) with `mvn package -Dskip.frontend=true`.
 
 ## Architecture
 
@@ -32,139 +70,115 @@ The **filesystem is the single source of truth.** Layout under `data-dir`:
 ```
 data/
   bob@kunde.test/
-    .address                 canonical recipient address
-    1720000000000-ab12cd34.eml   raw RFC 822 message
-    1720000000000-ab12cd34.json  derived index (subject, from, seen, ...)
+    .address                       canonical recipient address
+    1720000000000-ab12cd34.eml     raw RFC 822 message  (authoritative)
+    1720000000000-ab12cd34.json    derived index (subject, from, seen, ...)
 ```
 
-The `.eml` is authoritative; the `.json` is a regenerable cache.
+The `.eml` is authoritative; the `.json` is a regenerable cache. SMTP and IMAP are small
+hand-rolled socket servers on purpose: it keeps the dependency surface to Spring Boot plus
+Jakarta Mail (used only for MIME parsing, composing and outbound relay) and avoids the
+javax/jakarta split of older libraries. The Lucene search index is in-memory and rebuilt
+from the store on startup — no index files, no external service.
 
-### Repository layout (Maven multi-module, one jar)
+### Repository layout (Maven multi-module → one jar)
 
-- `plugin-api/` - the stable plugin SPI (`MailForwarder`, `ConfigField`, ...). Pure
+- **`plugin-api/`** — the stable plugin SPI (`MailForwarder`, `ConfigField`, ...). Pure
   Java, no framework dependencies.
-- `plugins/` - the built-in forwarder plugins (SMTP, Webhook, Graph, Gmail, HTTP-API,
-  SES). Depend only on the plugin API; discovered as Spring beans.
-- `app/` - the runnable application (SMTP/IMAP/store/web + the React UI under
-  `app/frontend/`). Depends on the two above and repackages everything into one jar.
+- **`plugins/`** — the built-in forwarder plugins; depend only on the plugin API and are
+  discovered as Spring beans.
+- **`app/`** — the runnable application (SMTP/IMAP/store/web/search + the React UI under
+  `app/frontend/`). Depends on the two modules and repackages everything into one jar.
 
-`mvn package` at the root builds all three modules into `app/target/acmemailtrap.jar`.
-Adding a forwarder is a new bean in `plugins/` — no `app` changes, no UI changes.
+`mvn package` at the root builds all three into `app/target/acmemailtrap.jar`. Adding a
+forwarder is a new bean in `plugins/` — no `app` changes, no UI changes (the Weiterleitung
+view renders any forwarder from its config schema).
 
-### Components
+## Forwarding (optional)
 
-- `smtp/SmtpReceiver` - hand-rolled catch-all SMTP server (Teil 1).
-- `store/MailStore` - the maildir-style store (Teil 2).
-- `imap/ImapServer` + `ImapSession` - the IMAP server over the same store (Teil 3).
-- `web/*Controller` - REST API; the UI is a React/TypeScript (Vite) app under
-  `app/frontend/`, built into the jar's `static/` by Maven (Teil 4).
-- `smtp/MailSender` - compose and deliver into the trap (Teil 5).
-- `smtp/ForwardingService` + `plugins/` - relay via a chosen forwarder plugin (Teil 6).
+Forwarding is off by default. Enable it and pick a channel at runtime in the
+**Weiterleitung** view (or via `PUT /api/forward`); each mailbox can be routed
+independently. Built-in channels:
 
-SMTP and IMAP are hand-rolled (small socket servers) on purpose: it keeps the
-dependency surface to Spring Boot plus Jakarta Mail (used only for MIME parsing,
-composing and outbound relay), and avoids the javax/jakarta split of older libraries.
+| Channel | Notes |
+|---------|-------|
+| SMTP (STARTTLS/SSL) | universal; also covers SES/Postmark/Mailgun SMTP and self-hosted MTAs |
+| Webhook / HTTP relay | POST raw MIME or JSON to a URL, optional HMAC signature |
+| Microsoft 365 (Graph) | `sendMail` with raw MIME, OAuth2 client-credentials |
+| Google Workspace (Gmail) | `messages.send`, OAuth2 refresh token |
+| Postmark / SendGrid | transactional HTTP APIs (message recomposed from MIME) |
+| Amazon SES | SES v2 raw MIME, AWS Signature V4 |
 
-## Running
-
-Requirements: JDK 25 and Maven. The frontend is built automatically by Maven
-(`frontend-maven-plugin` downloads a pinned Node, runs `npm install` + `vite build`,
-and folds the bundle into the jar's `static/`), so a single command produces one
-self-contained artifact:
-
-```
-mvn package
-java -jar app/target/acmemailtrap.jar
-```
-
-Build the backend only (skip the npm build) with `-Dskip.frontend=true`.
-
-### Frontend development
-
-The UI lives in `frontend/` (React + TypeScript + Vite, Zustand for state, self-hosted
-fonts via `@fontsource`). For a fast edit loop, run the backend and the Vite dev server
-side by side — the dev server proxies `/api` to the backend on :8090:
-
-```
-java -jar app/target/acmemailtrap.jar         # or: mvn -pl app -am spring-boot:run
-cd app/frontend && npm install && npm run dev  # http://localhost:5173
-```
-
-Then open the web UI and point ACMEsuite at the SMTP port:
-
-| Surface | Default            |
-|---------|--------------------|
-| Web UI  | http://localhost:8090 |
-| SMTP    | localhost:1025     |
-| IMAP    | localhost:1143     |
-
-Send a quick test message from the shell:
-
-```
-printf 'From: alice@acmesuite.test\r\nTo: bob@kunde.test\r\nSubject: Hello\r\n\r\nBody\r\n' \
-  | curl -s --url 'smtp://localhost:1025' \
-    --mail-from alice@acmesuite.test --mail-rcpt bob@kunde.test --upload-file -
-```
-
-It appears in the UI under the `bob@kunde.test` mailbox and is readable over IMAP
-(log in as `bob@kunde.test` with any password; the mailbox is `INBOX`).
-
-## Configuration
-
-All settings live under `acmemailtrap.*` (see `src/main/resources/application.yml`)
-and can be overridden with environment variables or CLI args.
+The initial SMTP relay can be seeded from configuration:
 
 ```yaml
 acmemailtrap:
-  data-dir: ./data
-  smtp:   { enabled: true, bind: 0.0.0.0, port: 1025, max-message-size: 26214400 }
-  imap:   { enabled: true, bind: 0.0.0.0, port: 1143 }
-  forward:                        # Teil 6, off by default
+  forward:
     enabled: false
     host: smtp.example.com
     port: 587
     username: ""
     password: ""
     starttls: true
-    recipient-domains: []         # empty = forward all; else only these domains
+```
+
+## Configuration
+
+All settings live under `acmemailtrap.*` (see `app/src/main/resources/application.yml`)
+and can be overridden with environment variables or CLI args:
+
+```yaml
+acmemailtrap:
+  data-dir: ./data
+  smtp: { enabled: true, bind: 0.0.0.0, port: 1025, max-message-size: 26214400 }
+  imap: { enabled: true, bind: 0.0.0.0, port: 1143 }
 ```
 
 ## Authentication (optional)
 
-The tool is **open by default** (zero-friction on localhost). To protect a shared
-instance, enable login under `acmemailtrap.auth.*`. SMTP/IMAP are never affected; only
-the web UI/API are gated. Authorization is a local allowlist — an OAuth provider with an
-empty allowlist admits nobody (fail closed).
+Open by default (zero-friction on localhost). To protect a shared instance, enable login
+under `acmemailtrap.auth.*`. **SMTP/IMAP are never affected; only the web UI/API are
+gated.** Authorization is a local allowlist — an OAuth provider with an empty allowlist
+admits nobody (fail closed), and the role a user gets is assigned locally, never derived
+from the provider.
 
 ```yaml
 acmemailtrap:
   auth:
     enabled: true
-    local:   { enabled: true, username: admin, password: "change-me" }
-    github:                       # create an OAuth App; callback .../login/oauth2/code/github
+    local:  { enabled: true, username: admin, password: "change-me" }
+    github:                         # OAuth App; callback .../login/oauth2/code/github
       enabled: true
       client-id: "..."
-      client-secret: "..."
       allowed-orgs:  [acmesoftware-de]
       allowed-users: [fschupp]
-    gitlab:                       # self-hosted friendly; callback .../login/oauth2/code/gitlab
+    gitlab:                         # self-hosted friendly; .../login/oauth2/code/gitlab
       enabled: false
       base-url: "https://gitlab.example.com"
       client-id: "..."
-      client-secret: "..."
       allowed-groups: [platform/team]
 ```
 
-Secrets are best supplied via environment variables
-(`ACMEMAILTRAP_AUTH_GITHUB_CLIENT_SECRET=...`) rather than committed config. The role a
-user gets is assigned locally, never derived from the provider.
+Supply secrets via environment variables
+(`ACMEMAILTRAP_AUTH_GITHUB_CLIENT_SECRET=...`) rather than committed config.
+
+## Frontend development
+
+The UI (`app/frontend/`) is React + TypeScript + Vite, Zustand for state, self-hosted
+fonts via `@fontsource`. For a fast edit loop, run the backend and the Vite dev server
+side by side — the dev server proxies `/api` to the backend on :8090:
+
+```bash
+java -jar app/target/acmemailtrap.jar          # or: mvn -pl app -am spring-boot:run
+cd app/frontend && npm install && npm run dev   # http://localhost:5173
+```
 
 ## Limitations
 
-This is a testing tool, not a production mail server. It requires no authentication,
-accepts every recipient, and its IMAP server implements a pragmatic read-mostly subset
-(UID equals sequence number within a snapshot, constant UIDVALIDITY, single-part
-BODYSTRUCTURE). Do not expose it to untrusted networks.
+This is a testing tool, not a production mail server. It requires no SMTP/IMAP
+authentication, accepts every recipient, and its IMAP server implements a pragmatic
+read-mostly subset (UID equals sequence number within a snapshot, constant UIDVALIDITY,
+single-part BODYSTRUCTURE). Do not expose it to untrusted networks.
 
 ## License
 
