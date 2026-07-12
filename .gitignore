@@ -9,3 +9,6 @@ data/
 # frontend
 app/frontend/node_modules/
 app/frontend/dist/
+
+# CI copies the built jar here for the runtime image
+/acmemailtrap.jar

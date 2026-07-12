@@ -15,7 +15,20 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          fetch-depth: 0   # full history so the image stamps the commit
+          fetch-depth: 0   # full history so the jar stamps the commit
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+
+      # Build the (architecture-independent) jar once, natively.
+      - name: Build jar
+        run: |
+          ./mvnw -q -B -DskipTests package
+          cp app/target/acmemailtrap.jar ./acmemailtrap.jar
 
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
@@ -36,15 +49,13 @@ jobs:
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest
 
-      - name: Build and push
+      # Multi-arch is cheap here: the same jar, only the JRE base differs per platform.
+      - name: Build and push (amd64 + arm64)
         uses: docker/build-push-action@v6
         with:
           context: .
-          # amd64 only: the jar is arch-independent and this self-contained image
-          # rebuilds it per platform, so an emulated arm64 build would be slow.
-          # Apple Silicon users can `docker build` locally (native), or add
-          # linux/arm64 here to publish a multi-arch image.
-          platforms: linux/amd64
+          file: Dockerfile.dist
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
