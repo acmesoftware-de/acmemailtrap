@@ -179,6 +179,23 @@ java -jar app/target/acmemailtrap.jar          # or: mvn -pl app -am spring-boot
 cd app/frontend && npm install && npm run dev   # http://localhost:5173
 ```
 
+## Docker
+
+```bash
+docker run -d --name acmemailtrap \
+  --read-only --tmpfs /tmp -v acmemailtrap-data:/data \
+  --cap-drop ALL --security-opt no-new-privileges \
+  -p 127.0.0.1:8090:8090 \
+  acmesoftware/acmemailtrap:latest
+# Web UI on http://localhost:8090
+```
+
+The image runs as a **non-root** user with a **read-only root filesystem**; the maildir
+lives in the `/data` volume. SMTP (`:1025`) and IMAP (`:1143`) are unauthenticated by
+design — publish them only on a trusted/loopback interface (e.g. add
+`-p 127.0.0.1:1025:1025`), never to the public internet. Build it yourself with
+`docker build -t acmemailtrap .`.
+
 ## Deploying securely
 
 SMTP and IMAP are unauthenticated by design, so they must never be exposed to the public

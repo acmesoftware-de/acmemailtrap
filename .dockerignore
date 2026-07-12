@@ -1,0 +1,16 @@
+# Build outputs and caches — the image builds these from source.
+**/target/
+app/frontend/node_modules/
+app/frontend/dist/
+
+# Runtime data and local noise
+data/
+*.log
+.idea/
+*.iml
+.vscode/
+.DS_Store
+
+# Not needed to build the jar
+docs/
+.github/
