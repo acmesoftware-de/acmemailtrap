@@ -6,9 +6,27 @@
     <title>ACMEmailtrap API — Redoc</title>
     <style>
       body { margin: 0; }
+      .docs-nav {
+        display: flex; align-items: center; gap: 16px;
+        padding: 10px 16px; background: #17181c; color: #f4f3ef;
+        font: 13px/1 -apple-system, Segoe UI, Roboto, sans-serif;
+      }
+      .docs-nav strong { letter-spacing: .04em; }
+      .docs-nav a { color: #9aa4b2; text-decoration: none; }
+      .docs-nav a:hover { color: #fff; }
+      .docs-nav a.active { color: #6e56cf; font-weight: 700; }
+      .docs-nav .spacer { flex: 1; }
     </style>
   </head>
   <body>
+    <nav class="docs-nav">
+      <strong>ACMEmailtrap API</strong>
+      <a href="/swagger.html">Swagger UI</a>
+      <a class="active" href="/redoc.html">Redoc</a>
+      <span class="spacer"></span>
+      <a href="/openapi.yaml">openapi.yaml</a>
+      <a href="/">&larr; App</a>
+    </nav>
     <redoc spec-url="/openapi.yaml"></redoc>
     <!-- Self-contained bundle served from the jar (webjar), no CDN. -->
     <script src="/webjars/redoc/2.5.0/bundles/redoc.standalone.js"></script>
