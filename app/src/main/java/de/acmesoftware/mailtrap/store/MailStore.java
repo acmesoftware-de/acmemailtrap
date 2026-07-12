@@ -49,9 +49,13 @@ public class MailStore {
     private final ObjectMapper json;
     private final ReentrantLock lock = new ReentrantLock();
 
-    public MailStore(MailtrapProperties props, ObjectMapper json) {
+    private final org.springframework.context.ApplicationEventPublisher events;
+
+    public MailStore(MailtrapProperties props, ObjectMapper json,
+                     org.springframework.context.ApplicationEventPublisher events) {
         this.root = Path.of(props.getDataDir()).toAbsolutePath().normalize();
         this.json = json;
+        this.events = events;
     }
 
     @PostConstruct
@@ -79,6 +83,7 @@ public class MailStore {
         String id = newId();
         MessageMeta meta = computeMeta(id, raw, envelopeFrom, recipients);
 
+        String body = extractBody(raw);
         lock.lock();
         try {
             for (String recipient : meta.recipients()) {
@@ -89,6 +94,9 @@ public class MailStore {
         } finally {
             lock.unlock();
         }
+        for (String recipient : meta.recipients()) {
+            events.publishEvent(new StoreEvents.MessageStored(recipient, meta, body));
+        }
         log.info("Stored message {} ({} bytes) for {}", id, raw.length, meta.recipients());
         return id;
     }
@@ -97,6 +105,7 @@ public class MailStore {
     public void storeSentCopy(byte[] raw, String envelopeFrom, List<String> recipients) {
         String id = newId();
         MessageMeta meta = computeMeta(id, raw, envelopeFrom, recipients);
+        String body = extractBody(raw);
         lock.lock();
         try {
             writeMessage(SENT_MAILBOX, meta, raw, true, SENT_MAILBOX);
@@ -104,6 +113,17 @@ public class MailStore {
             throw new UncheckedIOException("Failed to store sent copy " + id, e);
         } finally {
             lock.unlock();
+        }
+        events.publishEvent(new StoreEvents.MessageStored(SENT_MAILBOX, meta, body));
+    }
+
+    /** Searchable body text: the plain-text part, else the de-tagged HTML. */
+    private static String extractBody(byte[] raw) {
+        try {
+            MimeSupport.Bodies b = MimeSupport.extract(MimeSupport.parse(raw));
+            return !b.text().isBlank() ? b.text() : b.html().replaceAll("<[^>]+>", " ");
+        } catch (MessagingException e) {
+            return "";
         }
     }
 
@@ -306,41 +326,50 @@ public class MailStore {
     }
 
     public boolean deleteMessage(String mailbox, String id) {
+        String address;
+        boolean removed;
         lock.lock();
         try {
             Path box = existingMailboxDir(mailbox);
             if (box == null) {
                 return false;
             }
-            boolean removed = Files.deleteIfExists(box.resolve(safeId(id) + ".eml"));
+            address = readAddress(box).orElse(mailbox);
+            removed = Files.deleteIfExists(box.resolve(safeId(id) + ".eml"));
             Files.deleteIfExists(box.resolve(safeId(id) + ".json"));
-            return removed;
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to delete message " + id, e);
         } finally {
             lock.unlock();
         }
+        if (removed) {
+            events.publishEvent(new StoreEvents.MessageRemoved(address, id));
+        }
+        return removed;
     }
 
     public boolean deleteMailbox(String mailbox) {
+        String address;
         lock.lock();
         try {
             Path box = existingMailboxDir(mailbox);
             if (box == null) {
                 return false;
             }
+            address = readAddress(box).orElse(mailbox);
             try (DirectoryStream<Path> files = Files.newDirectoryStream(box)) {
                 for (Path f : files) {
                     Files.deleteIfExists(f);
                 }
             }
             Files.deleteIfExists(box);
-            return true;
         } catch (IOException e) {
             throw new UncheckedIOException("Failed to delete mailbox " + mailbox, e);
         } finally {
             lock.unlock();
         }
+        events.publishEvent(new StoreEvents.MailboxRemoved(address));
+        return true;
     }
 
     // ---- helpers -----------------------------------------------------------------

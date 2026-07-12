@@ -8,6 +8,7 @@ import ServerView from './components/ServerView'
 import ForwardingView from './components/ForwardingView'
 import ComposerView from './components/ComposerView'
 import Login from './components/Login'
+import CommandPalette from './components/CommandPalette'
 
 export default function App() {
   const mode = useStore((s) => s.mode)
@@ -25,6 +26,18 @@ export default function App() {
       void useStore.getState().refresh()
     }, 3000)
     return () => clearInterval(t)
+  }, [])
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        const s = useStore.getState()
+        s.setPalette(!s.paletteOpen)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
   }, [])
 
   const rootStyle = {
@@ -53,6 +66,7 @@ export default function App() {
         {section === 'FWD' && <ForwardingView />}
         {section === 'NEW' && <ComposerView />}
       </div>
+      <CommandPalette />
     </div>
   )
 }

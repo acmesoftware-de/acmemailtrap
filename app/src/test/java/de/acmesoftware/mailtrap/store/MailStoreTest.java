@@ -16,7 +16,7 @@ class MailStoreTest {
     private MailStore newStore(Path dir) {
         MailtrapProperties props = new MailtrapProperties();
         props.setDataDir(dir.toString());
-        MailStore store = new MailStore(props, JsonMapper.builder().build());
+        MailStore store = new MailStore(props, JsonMapper.builder().build(), event -> {});
         store.init();
         return store;
     }

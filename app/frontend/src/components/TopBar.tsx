@@ -14,6 +14,7 @@ export default function TopBar() {
   const build = useStore((s) => s.build)
   const auth = useStore((s) => s.auth)
   const setSection = useStore((s) => s.setSection)
+  const setPalette = useStore((s) => s.setPalette)
   const toggleTheme = useStore((s) => s.toggleTheme)
 
   return (
@@ -69,6 +70,7 @@ export default function TopBar() {
       </div>
       <div style={{ flex: 1 }} />
       <div
+        onClick={() => setPalette(true)}
         style={{
           display: 'flex',
           alignItems: 'center',
@@ -79,6 +81,7 @@ export default function TopBar() {
           background: 'var(--bg)',
           color: 'var(--dim)',
           fontSize: 12.5,
+          cursor: 'pointer',
         }}
       >
         <span>Postfächer durchsuchen…</span>

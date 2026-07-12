@@ -107,6 +107,20 @@ export interface AuthState {
   providers: AuthProviderInfo[]
 }
 
+export interface SearchHit {
+  mailbox: string
+  id: string
+  from: string
+  subject: string
+  mod: string
+  receivedAt: number
+}
+
+export interface SearchResults {
+  mailboxes: MailboxInfo[]
+  messages: SearchHit[]
+}
+
 export type Section = 'MAIL' | 'SRV' | 'FWD' | 'NEW'
 export type ReadView = 'html' | 'text' | 'raw'
 export type Filter = 'alle' | 'unread'

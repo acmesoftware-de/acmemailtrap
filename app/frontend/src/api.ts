@@ -7,6 +7,7 @@ import type {
   MailboxInfo,
   MessageDetail,
   MessageMeta,
+  SearchResults,
   ServerInfo,
   Stats,
 } from './types'
@@ -51,6 +52,7 @@ export const api = {
   stats: () => get<Stats>('/api/stats'),
   version: () => get<BuildInfo>('/api/version'),
   auth: () => get<AuthState>('/api/auth'),
+  search: (q: string) => get<SearchResults>(`/api/search?q=${enc(q)}`),
   server: () => get<ServerInfo>('/api/server'),
   logs: (limit = 100) => get<LogEntry[]>(`/api/logs?limit=${limit}`),
   forward: () => get<ForwardConfig>('/api/forward'),

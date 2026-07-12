@@ -28,6 +28,7 @@
     <properties>
         <java.version>25</java.version>
         <node.version>v22.12.0</node.version>
+        <lucene.version>9.12.0</lucene.version>
         <!-- set -Dskip.frontend=true to build without the npm build -->
         <skip.frontend>false</skip.frontend>
     </properties>

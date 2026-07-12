@@ -54,6 +54,7 @@ interface State {
   forwarders: ForwarderProvider[]
   build: BuildInfo | null
   auth: AuthState | null
+  paletteOpen: boolean
 
   comp: Comp
   compFlash: string
@@ -62,6 +63,7 @@ interface State {
   init: () => Promise<void>
   refresh: () => Promise<void>
   setSection: (s: Section) => void
+  setPalette: (open: boolean) => void
   toggleTheme: () => void
   setFilter: (f: Filter) => void
   setReadView: (v: ReadView) => Promise<void>
@@ -106,6 +108,7 @@ export const useStore = create<State>((set, get) => ({
   forwarders: [],
   build: null,
   auth: null,
+  paletteOpen: false,
 
   comp: emptyComp,
   compFlash: '',
@@ -162,6 +165,8 @@ export const useStore = create<State>((set, get) => ({
     set({ section: s })
     void get().refresh()
   },
+
+  setPalette: (open) => set({ paletteOpen: open }),
 
   toggleTheme: () => set((st) => ({ mode: st.mode === 'dark' ? 'light' : 'dark' })),
 
