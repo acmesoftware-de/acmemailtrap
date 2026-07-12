@@ -1,0 +1,488 @@
+openapi: 3.1.0
+info:
+  title: ACMEmailtrap API
+  version: 0.3.0-SNAPSHOT
+  description: >
+    REST API of ACMEmailtrap, the email trap for testing ACMEsuite mail flows. Catches
+    SMTP, stores per recipient, serves IMAP and this API. When login is enabled, all
+    endpoints except `/api/auth` require an authenticated session.
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+servers:
+  - url: /
+    description: This ACMEmailtrap instance
+tags:
+  - name: Mailboxes
+  - name: Messages
+  - name: Compose
+  - name: Forwarding
+  - name: Server
+  - name: Search
+  - name: Auth
+  - name: Meta
+
+paths:
+  /api/mailboxes:
+    get:
+      tags: [Mailboxes]
+      summary: List mailboxes
+      description: All recipient mailboxes, most-recently-active first; the "Sent" mailbox last.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/MailboxInfo" }
+
+  /api/mailboxes/{mailbox}:
+    delete:
+      tags: [Mailboxes]
+      summary: Delete a mailbox and all its messages
+      parameters: [ { $ref: "#/components/parameters/Mailbox" } ]
+      responses:
+        "204": { description: Deleted }
+        "404": { description: Unknown mailbox }
+
+  /api/mailboxes/{mailbox}/messages:
+    get:
+      tags: [Messages]
+      summary: List messages in a mailbox
+      description: Newest first.
+      parameters: [ { $ref: "#/components/parameters/Mailbox" } ]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/MessageMeta" }
+
+  /api/mailboxes/{mailbox}/messages/{id}:
+    get:
+      tags: [Messages]
+      summary: Get a message with parsed bodies and attachments
+      parameters:
+        - { $ref: "#/components/parameters/Mailbox" }
+        - { $ref: "#/components/parameters/MessageId" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MessageDetail" }
+        "404": { description: Not found }
+    delete:
+      tags: [Messages]
+      summary: Delete a single message
+      parameters:
+        - { $ref: "#/components/parameters/Mailbox" }
+        - { $ref: "#/components/parameters/MessageId" }
+      responses:
+        "204": { description: Deleted }
+        "404": { description: Not found }
+
+  /api/mailboxes/{mailbox}/messages/{id}/raw:
+    get:
+      tags: [Messages]
+      summary: Raw RFC 822 source (.eml)
+      parameters:
+        - { $ref: "#/components/parameters/Mailbox" }
+        - { $ref: "#/components/parameters/MessageId" }
+      responses:
+        "200":
+          description: OK
+          content:
+            message/rfc822:
+              schema: { type: string, format: binary }
+        "404": { description: Not found }
+
+  /api/mailboxes/{mailbox}/messages/{id}/attachments/{index}:
+    get:
+      tags: [Messages]
+      summary: Download one attachment by index
+      parameters:
+        - { $ref: "#/components/parameters/Mailbox" }
+        - { $ref: "#/components/parameters/MessageId" }
+        - name: index
+          in: path
+          required: true
+          schema: { type: integer, minimum: 0 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/octet-stream:
+              schema: { type: string, format: binary }
+        "404": { description: Not found }
+
+  /api/mailboxes/{mailbox}/messages/{id}/seen:
+    post:
+      tags: [Messages]
+      summary: Mark a message seen or unseen
+      parameters:
+        - { $ref: "#/components/parameters/Mailbox" }
+        - { $ref: "#/components/parameters/MessageId" }
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                seen: { type: boolean, default: true }
+      responses:
+        "204": { description: Updated }
+        "404": { description: Not found }
+
+  /api/mailboxes/{mailbox}/messages/{id}/forward:
+    post:
+      tags: [Messages, Forwarding]
+      summary: Force-forward a specific message now
+      description: Relays via the configured forwarder if forwarding is enabled; otherwise logs a warning.
+      parameters:
+        - { $ref: "#/components/parameters/Mailbox" }
+        - { $ref: "#/components/parameters/MessageId" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  relayed: { type: boolean }
+        "404": { description: Not found }
+
+  /api/send:
+    post:
+      tags: [Compose]
+      summary: Compose and deliver a test message into the trap
+      description: The recipients appear as (new) mailboxes; a copy is stored in "Sent".
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SendRequest" }
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string }
+
+  /api/forward:
+    get:
+      tags: [Forwarding]
+      summary: Current forwarding configuration
+      description: Secret values are never returned.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ForwardConfig" }
+    put:
+      tags: [Forwarding]
+      summary: Update forwarding configuration
+      description: A blank secret keeps the stored value.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ForwardConfig" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ForwardConfig" }
+
+  /api/forward/providers:
+    get:
+      tags: [Forwarding]
+      summary: Installed forwarder plugins and their config schemas
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ForwarderProvider" }
+
+  /api/server:
+    get:
+      tags: [Server]
+      summary: SMTP/IMAP status and live metrics
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ServerInfo" }
+
+  /api/logs:
+    get:
+      tags: [Server]
+      summary: Recent tagged event log entries (newest first)
+      parameters:
+        - name: limit
+          in: query
+          schema: { type: integer, default: 100, minimum: 1, maximum: 500 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/LogEntry" }
+
+  /api/stats:
+    get:
+      tags: [Server, Meta]
+      summary: Dashboard KPIs
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Stats" }
+
+  /api/search:
+    get:
+      tags: [Search]
+      summary: Full-text search across messages and mailboxes
+      parameters:
+        - name: q
+          in: query
+          schema: { type: string }
+          description: Query over subject, sender, body and mailbox address.
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, minimum: 1, maximum: 50 }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/SearchResults" }
+
+  /api/auth:
+    get:
+      tags: [Auth]
+      summary: Login state and available providers
+      description: Always accessible so the UI can render a login screen.
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthState" }
+
+  /api/config:
+    get:
+      tags: [Meta]
+      summary: Ports and forwarding summary for the UI
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Config" }
+
+  /api/version:
+    get:
+      tags: [Meta]
+      summary: Build identity (version, commit, branch)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/BuildInfo" }
+
+components:
+  parameters:
+    Mailbox:
+      name: mailbox
+      in: path
+      required: true
+      description: Recipient address (URL-encoded), e.g. bob%40kunde.test
+      schema: { type: string }
+    MessageId:
+      name: id
+      in: path
+      required: true
+      schema: { type: string }
+
+  schemas:
+    MailboxInfo:
+      type: object
+      properties:
+        address: { type: string }
+        folder: { type: string }
+        total: { type: integer }
+        unseen: { type: integer }
+        lastReceivedAt: { type: integer, format: int64, description: epoch millis }
+        sent: { type: boolean }
+        label: { type: [string, "null"] }
+    MessageMeta:
+      type: object
+      properties:
+        id: { type: string }
+        from: { type: string }
+        subject: { type: string }
+        receivedAt: { type: integer, format: int64 }
+        size: { type: integer, format: int64 }
+        seen: { type: boolean }
+        recipients: { type: array, items: { type: string } }
+        mod: { type: string, description: originating ACMEsuite module (X-ACMEsuite-Module) }
+        snippet: { type: string }
+    Attachment:
+      type: object
+      properties:
+        index: { type: integer }
+        filename: { type: string }
+        contentType: { type: string }
+        size: { type: integer, format: int64 }
+    MessageDetail:
+      type: object
+      properties:
+        id: { type: string }
+        mailbox: { type: string }
+        from: { type: string }
+        subject: { type: string }
+        receivedAt: { type: integer, format: int64 }
+        size: { type: integer, format: int64 }
+        seen: { type: boolean }
+        recipients: { type: array, items: { type: string } }
+        mod: { type: string }
+        text: { type: string }
+        html: { type: string }
+        attachments: { type: array, items: { $ref: "#/components/schemas/Attachment" } }
+    SendRequest:
+      type: object
+      required: [to]
+      properties:
+        from: { type: string }
+        to: { type: array, items: { type: string }, minItems: 1 }
+        subject: { type: string }
+        text: { type: string }
+        html: { type: string }
+    ForwardConfig:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        forwarderId: { type: string, description: "one of the /api/forward/providers ids" }
+        mailboxes:
+          type: array
+          items: { type: string }
+          description: addresses to forward; empty = all
+        values:
+          type: object
+          additionalProperties: { type: string }
+          description: forwarder settings keyed by its config schema; secrets blanked on read
+    ConfigField:
+      type: object
+      properties:
+        key: { type: string }
+        label: { type: string }
+        type: { type: string, enum: [TEXT, NUMBER, PASSWORD, URL, SELECT, BOOL] }
+        secret: { type: boolean }
+        options: { type: array, items: { type: string } }
+    ForwarderProvider:
+      type: object
+      properties:
+        id: { type: string }
+        displayName: { type: string }
+        kind: { type: string, enum: [SMTP, GRAPH, GOOGLE, HTTP_API, WEBHOOK] }
+        schema: { type: array, items: { $ref: "#/components/schemas/ConfigField" } }
+    ServerInfo:
+      type: object
+      properties:
+        smtp: { $ref: "#/components/schemas/SmtpStatus" }
+        imap: { $ref: "#/components/schemas/ImapStatus" }
+        connections: { type: integer }
+        throughputPerMin: { type: integer }
+        forwards: { type: integer, format: int64 }
+    SmtpStatus:
+      type: object
+      properties:
+        port: { type: integer }
+        up: { type: boolean }
+        uptimeSec: { type: integer, format: int64 }
+        received: { type: integer, format: int64 }
+        errors: { type: integer, format: int64 }
+    ImapStatus:
+      type: object
+      properties:
+        port: { type: integer }
+        up: { type: boolean }
+        uptimeSec: { type: integer, format: int64 }
+        sessions: { type: integer, format: int64 }
+        folders: { type: integer }
+    LogEntry:
+      type: object
+      properties:
+        time: { type: integer, format: int64 }
+        tag: { type: string, description: "RECV | SEND | SMTP | IMAP | WARN | ERR" }
+        msg: { type: string }
+    Stats:
+      type: object
+      properties:
+        messages: { type: integer }
+        mailboxes: { type: integer }
+        unread: { type: integer }
+        today: { type: integer }
+    SearchResults:
+      type: object
+      properties:
+        mailboxes: { type: array, items: { $ref: "#/components/schemas/MailboxInfo" } }
+        messages: { type: array, items: { $ref: "#/components/schemas/SearchHit" } }
+    SearchHit:
+      type: object
+      properties:
+        mailbox: { type: string }
+        id: { type: string }
+        from: { type: string }
+        subject: { type: string }
+        mod: { type: string }
+        receivedAt: { type: integer, format: int64 }
+    AuthState:
+      type: object
+      properties:
+        enabled: { type: boolean }
+        authenticated: { type: boolean }
+        user: { type: [string, "null"] }
+        providers: { type: array, items: { $ref: "#/components/schemas/AuthProviderInfo" } }
+    AuthProviderInfo:
+      type: object
+      properties:
+        id: { type: string }
+        displayName: { type: string }
+        kind: { type: string, enum: [LOCAL, OAUTH] }
+        loginUrl: { type: string }
+    Config:
+      type: object
+      properties:
+        smtpPort: { type: integer }
+        smtpEnabled: { type: boolean }
+        imapPort: { type: integer }
+        imapEnabled: { type: boolean }
+        forwardEnabled: { type: boolean }
+        forwardHost: { type: string }
+    BuildInfo:
+      type: object
+      properties:
+        version: { type: string }
+        commit: { type: string }
+        branch: { type: string }
+        buildTime: { type: [integer, "null"], format: int64 }
+        label: { type: string, description: "e.g. 0.2.0 (a1b2c3d)" }

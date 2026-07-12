@@ -89,6 +89,24 @@ export default function TopBar() {
           ⌘K
         </span>
       </div>
+      <a
+        href="/swagger.html"
+        target="_blank"
+        rel="noopener"
+        title="API-Dokumentation (Swagger UI)"
+        style={{
+          marginLeft: 10,
+          padding: '8px 10px',
+          border: '1px solid var(--line)',
+          background: 'var(--bg)',
+          color: 'var(--dim)',
+          font: "700 10px 'Space Mono'",
+          letterSpacing: '.04em',
+          textDecoration: 'none',
+        }}
+      >
+        API
+      </a>
       <button
         onClick={toggleTheme}
         title="Hell / Dunkel"

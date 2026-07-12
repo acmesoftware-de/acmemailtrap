@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>ACMEmailtrap API — Swagger UI</title>
+    <!-- Assets served from the jar (webjar), no CDN. -->
+    <link rel="stylesheet" href="/webjars/swagger-ui/5.32.8/swagger-ui.css" />
+    <style>
+      body { margin: 0; background: #fff; }
+    </style>
+  </head>
+  <body>
+    <div id="swagger-ui"></div>
+    <script src="/webjars/swagger-ui/5.32.8/swagger-ui-bundle.js"></script>
+    <script src="/webjars/swagger-ui/5.32.8/swagger-ui-standalone-preset.js"></script>
+    <script>
+      window.onload = function () {
+        window.ui = SwaggerUIBundle({
+          url: '/openapi.yaml',
+          dom_id: '#swagger-ui',
+          deepLinking: true,
+          presets: [SwaggerUIBundle.presets.apis, SwaggerUIStandalonePreset],
+          layout: 'StandaloneLayout',
+          // send the session cookie so "Try it out" works when login is enabled
+          withCredentials: true,
+        })
+      }
+    </script>
+  </body>
+</html>
