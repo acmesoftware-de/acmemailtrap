@@ -1,17 +1,11 @@
 import { useStore } from '../store'
 import type { Section } from '../types'
+import LogoGlyph from './LogoGlyph'
 
 const TABS: [string, Section][] = [
   ['POSTFÄCHER', 'MAIL'],
   ['SERVER', 'SRV'],
   ['WEITERLEITUNG', 'FWD'],
-]
-
-const BARS = [
-  { h: 8, c: '#E5322A' },
-  { h: 13, c: '#E9AE06' },
-  { h: 19, c: '#1358D8' },
-  { h: 11, c: '#159E5B' },
 ]
 
 export default function TopBar() {
@@ -34,11 +28,7 @@ export default function TopBar() {
         background: 'var(--panel)',
       }}
     >
-      <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 19 }}>
-        {BARS.map((b, i) => (
-          <span key={i} style={{ width: 4, height: b.h, background: b.c }} />
-        ))}
-      </div>
+      <LogoGlyph height={19} />
       <span style={{ font: "700 13px 'Archivo'", letterSpacing: '.06em', color: 'var(--ink)', marginLeft: 9 }}>
         ACME<span style={{ color: 'var(--accent)', fontWeight: 500 }}>MAILTRAP</span>
       </span>

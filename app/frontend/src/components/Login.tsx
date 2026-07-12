@@ -1,4 +1,5 @@
 import { useStore } from '../store'
+import LogoGlyph from './LogoGlyph'
 
 /**
  * Login screen shown when auth is enabled and nobody is signed in. OAuth providers are
@@ -26,11 +27,7 @@ export default function Login() {
       }}
     >
       <div style={{ width: 360, background: 'var(--panel)', border: '1px solid var(--line)', padding: '32px 32px 28px' }}>
-        <div style={{ display: 'flex', alignItems: 'flex-end', gap: 2, height: 19 }}>
-          {[{ h: 8, c: '#E5322A' }, { h: 13, c: '#E9AE06' }, { h: 19, c: '#1358D8' }, { h: 11, c: '#159E5B' }].map((b, i) => (
-            <span key={i} style={{ width: 4, height: b.h, background: b.c }} />
-          ))}
-        </div>
+        <LogoGlyph height={20} />
         <div style={{ font: "700 14px 'Archivo'", letterSpacing: '.06em', marginTop: 10 }}>
           ACME<span style={{ color: 'var(--accent)', fontWeight: 500 }}>MAILTRAP</span>
         </div>
