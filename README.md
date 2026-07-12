@@ -1,16 +1,22 @@
-# ACMEmailtrap
+<h1 align="center">ACMEmailtrap</h1>
 
-[![CI](https://github.com/acmesoftware-de/acmemailtrap/actions/workflows/ci.yml/badge.svg)](https://github.com/acmesoftware-de/acmemailtrap/actions/workflows/ci.yml)
+<p align="center"><em>A self-contained email trap for testing ACMEsuite mail flows — catch, read, search and forward test mail without touching real email.</em></p>
 
-A self-contained **email trap** for testing the mail flows of **ACMEsuite** — and
-anything else that sends or reads mail — without touching real email. It catches SMTP,
-stores every message per recipient on disk, serves those mailboxes over IMAP and a web
-UI, lets you compose test mail, searches everything full-text, and can optionally forward
-to a real mail service through pluggable channels.
+<p align="center">
+  <a href="https://github.com/acmesoftware-de/acmemailtrap/actions/workflows/ci.yml"><img alt="CI" src="https://github.com/acmesoftware-de/acmemailtrap/actions/workflows/ci.yml/badge.svg"></a>
+  <a href="https://github.com/acmesoftware-de/acmemailtrap/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/acmesoftware-de/acmemailtrap?sort=semver"></a>
+  <img alt="Java 25" src="https://img.shields.io/badge/Java-25-orange">
+  <a href="LICENSE"><img alt="License" src="https://img.shields.io/badge/license-Apache--2.0-blue"></a>
+</p>
 
-Think MailHog/Mailpit, but built for the ACMEsuite ecosystem: one Spring Boot process,
-**no database, no message broker, no CDN**. The on-disk store is plain files you can
-inspect, and the whole thing ships as a single runnable jar.
+<p align="center"><img src="docs/screenshot.png" alt="ACMEmailtrap web UI" width="860"></p>
+
+Think MailHog/Mailpit, but built for the ACMEsuite ecosystem. It catches SMTP, stores
+every message per recipient on disk, serves those mailboxes over IMAP and a web UI, lets
+you compose test mail, searches everything full-text, and can optionally forward to a real
+mail service through pluggable channels — all in **one Spring Boot process: no database,
+no message broker, no CDN.** The on-disk store is plain files you can inspect, and the
+whole thing ships as a single runnable jar.
 
 ## Features
 
@@ -172,6 +178,13 @@ side by side — the dev server proxies `/api` to the backend on :8090:
 java -jar app/target/acmemailtrap.jar          # or: mvn -pl app -am spring-boot:run
 cd app/frontend && npm install && npm run dev   # http://localhost:5173
 ```
+
+## Deploying securely
+
+SMTP and IMAP are unauthenticated by design, so they must never be exposed to the public
+internet. To run a shared instance safely — the app on loopback, a default-deny firewall,
+nginx terminating TLS, and the UI behind login — follow the step-by-step guide:
+**[docs/secure-deployment.md](docs/secure-deployment.md)** (systemd + ufw + nginx + TLS).
 
 ## Limitations
 
