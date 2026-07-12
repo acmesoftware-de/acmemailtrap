@@ -1,6 +1,6 @@
 name: Docker publish
 
-# Publishes acmesoftware/acmemailtrap to Docker Hub on version tags.
+# Publishes acmesoftwaredotde/acmemailtrap to Docker Hub on version tags.
 # Enable by setting repository variable PUBLISH_DOCKER=true and secrets
 # DOCKERHUB_USERNAME + DOCKERHUB_TOKEN. Until then the job is skipped.
 on:
@@ -30,17 +30,21 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: acmesoftware/acmemailtrap
+          images: acmesoftwaredotde/acmemailtrap
           tags: |
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
             type=raw,value=latest
 
-      - name: Build and push (amd64 + arm64)
+      - name: Build and push
         uses: docker/build-push-action@v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
+          # amd64 only: the jar is arch-independent and this self-contained image
+          # rebuilds it per platform, so an emulated arm64 build would be slow.
+          # Apple Silicon users can `docker build` locally (native), or add
+          # linux/arm64 here to publish a multi-arch image.
+          platforms: linux/amd64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}

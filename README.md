@@ -186,7 +186,7 @@ docker run -d --name acmemailtrap \
   --read-only --tmpfs /tmp -v acmemailtrap-data:/data \
   --cap-drop ALL --security-opt no-new-privileges \
   -p 127.0.0.1:8090:8090 \
-  acmesoftware/acmemailtrap:latest
+  acmesoftwaredotde/acmemailtrap:latest
 # Web UI on http://localhost:8090
 ```
 
