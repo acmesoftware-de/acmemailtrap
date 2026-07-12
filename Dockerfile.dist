@@ -1,22 +1,33 @@
 # Runtime-only image for CI multi-arch publishing. The jar is architecture-independent
-# and built once by the workflow; only the JRE base differs per platform, so amd64 + arm64
-# are produced cheaply (no per-arch recompile). For a standalone build from source use the
-# self-contained ./Dockerfile instead.
-FROM eclipse-temurin:25-jre
+# and built once by the workflow; this file jlinks a minimal per-arch runtime and copies
+# the prebuilt jar, so amd64 + arm64 are produced without recompiling the app. For a
+# standalone build from source use the self-contained ./Dockerfile instead.
+#
+# Keep the --add-modules list in sync with ./Dockerfile.
+FROM eclipse-temurin:25-jdk AS jlink
+RUN "$JAVA_HOME/bin/jlink" \
+      --add-modules java.base,java.logging,java.naming,java.management,java.instrument,java.security.jgss,java.security.sasl,java.sql,java.desktop,java.net.http,java.xml,java.compiler,java.scripting,java.rmi,java.transaction.xa,jdk.crypto.ec,jdk.crypto.cryptoki,jdk.unsupported,jdk.management,jdk.net,jdk.zipfs,jdk.security.auth,jdk.jfr \
+      --strip-debug --no-header-files --no-man-pages --compress=zip-6 \
+      --output /javaruntime
+
+FROM debian:bookworm-slim
 LABEL org.opencontainers.image.title="ACMEmailtrap" \
       org.opencontainers.image.description="Email trap for testing ACMEsuite mail flows (SMTP/IMAP/web, pluggable forwarding)." \
       org.opencontainers.image.source="https://github.com/acmesoftware-de/acmemailtrap" \
       org.opencontainers.image.licenses="Apache-2.0"
 
+ENV JAVA_HOME=/opt/java \
+    PATH="/opt/java/bin:${PATH}" \
+    ACMEMAILTRAP_DATA_DIR=/data \
+    JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
+
 RUN groupadd -r trap && useradd -r -g trap -d /app -s /usr/sbin/nologin trap \
     && mkdir -p /app /data && chown -R trap:trap /app /data
 
-WORKDIR /app
+COPY --from=jlink /javaruntime /opt/java
 COPY --chown=trap:trap acmemailtrap.jar /app/acmemailtrap.jar
 
-ENV ACMEMAILTRAP_DATA_DIR=/data \
-    JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
-
+WORKDIR /app
 USER trap
 EXPOSE 8090 1025 1143
 VOLUME ["/data"]

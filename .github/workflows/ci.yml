@@ -25,13 +25,24 @@ jobs:
         uses: actions/cache@v6
         with:
           path: ~/.npm
-          key: npm-${{ hashFiles('frontend/package-lock.json') }}
+          key: npm-${{ hashFiles('app/frontend/package-lock.json') }}
           restore-keys: npm-
 
       # Builds the React bundle (via the Maven frontend plugin), packages the jar
       # and runs the tests — the whole project in one command.
       - name: Build and test
         run: mvn -B verify
+
+      # Continuous dependency vulnerability scan (informational; does not fail the build).
+      - name: Trivy dependency scan
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          scan-type: fs
+          scan-ref: .
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: '0'
+          format: table
 
       - name: Upload jar
         if: success()

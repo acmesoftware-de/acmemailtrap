@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-# --- build stage: compile backend + React frontend into one jar -----------------
+# --- build stage: compile backend + React frontend, then jlink a minimal runtime ---
 FROM eclipse-temurin:25-jdk AS build
 WORKDIR /src
 
@@ -13,30 +13,38 @@ COPY plugins/pom.xml plugins/
 COPY app/pom.xml app/
 RUN ./mvnw -q -B -DskipTests dependency:go-offline || true
 
-# Then the sources and the real build (frontend plugin downloads its pinned Node).
+# Sources + real build (the frontend plugin downloads its pinned Node).
 COPY . .
 RUN ./mvnw -q -B -DskipTests package
 
-# --- runtime stage: minimal JRE, non-root, writable data volume -----------------
-FROM eclipse-temurin:25-jre AS runtime
+# Custom, stripped runtime with just the modules the app needs.
+RUN "$JAVA_HOME/bin/jlink" \
+      --add-modules java.base,java.logging,java.naming,java.management,java.instrument,java.security.jgss,java.security.sasl,java.sql,java.desktop,java.net.http,java.xml,java.compiler,java.scripting,java.rmi,java.transaction.xa,jdk.crypto.ec,jdk.crypto.cryptoki,jdk.unsupported,jdk.management,jdk.net,jdk.zipfs,jdk.security.auth,jdk.jfr \
+      --strip-debug --no-header-files --no-man-pages --compress=zip-6 \
+      --output /javaruntime
+
+# --- runtime stage: slim Debian + the custom runtime, non-root ---------------------
+FROM debian:bookworm-slim AS runtime
 LABEL org.opencontainers.image.title="ACMEmailtrap" \
       org.opencontainers.image.description="Email trap for testing ACMEsuite mail flows (SMTP/IMAP/web, pluggable forwarding)." \
       org.opencontainers.image.source="https://github.com/acmesoftware-de/acmemailtrap" \
       org.opencontainers.image.licenses="Apache-2.0"
 
-# Unprivileged user; the app never needs root.
+ENV JAVA_HOME=/opt/java \
+    PATH="/opt/java/bin:${PATH}" \
+    ACMEMAILTRAP_DATA_DIR=/data \
+    JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
+
 RUN groupadd -r trap && useradd -r -g trap -d /app -s /usr/sbin/nologin trap \
     && mkdir -p /app /data && chown -R trap:trap /app /data
 
-WORKDIR /app
+COPY --from=build /javaruntime /opt/java
 COPY --from=build --chown=trap:trap /src/app/target/acmemailtrap.jar /app/acmemailtrap.jar
 
-ENV ACMEMAILTRAP_DATA_DIR=/data \
-    JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
-
+WORKDIR /app
 USER trap
-# Web UI. SMTP (1025) and IMAP (1143) are also served — publish them ONLY on a
-# trusted/loopback interface; they are unauthenticated by design.
+# SMTP (1025) and IMAP (1143) are unauthenticated by design — publish them ONLY on a
+# trusted/loopback interface, never to the public internet.
 EXPOSE 8090 1025 1143
 VOLUME ["/data"]
 
