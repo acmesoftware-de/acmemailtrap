@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: ACMEmailtrap API
-  version: 0.3.0
+  version: 0.4.0-SNAPSHOT
   description: >
     REST API of ACMEmailtrap, the email trap for testing ACMEsuite mail flows. Catches
     SMTP, stores per recipient, serves IMAP and this API. When login is enabled, all
