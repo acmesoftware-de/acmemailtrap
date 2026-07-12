@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { api } from './api'
 import { ACCENT_DEFAULT } from './format'
 import type {
+  AuthState,
   BuildInfo,
   ForwardConfig,
   ForwarderProvider,
@@ -52,6 +53,7 @@ interface State {
   forward: ForwardConfig | null
   forwarders: ForwarderProvider[]
   build: BuildInfo | null
+  auth: AuthState | null
 
   comp: Comp
   compFlash: string
@@ -103,6 +105,7 @@ export const useStore = create<State>((set, get) => ({
   forward: null,
   forwarders: [],
   build: null,
+  auth: null,
 
   comp: emptyComp,
   compFlash: '',
@@ -115,6 +118,11 @@ export const useStore = create<State>((set, get) => ({
   },
 
   init: async () => {
+    const auth = await api.auth().catch(() => null)
+    set({ auth })
+    if (auth && auth.enabled && !auth.authenticated) {
+      return // gated — App renders the login screen instead of loading data
+    }
     try {
       set({ build: await api.version() })
     } catch {
@@ -130,6 +138,10 @@ export const useStore = create<State>((set, get) => ({
   },
 
   refresh: async () => {
+    const auth = get().auth
+    if (auth && auth.enabled && !auth.authenticated) {
+      return // gated: don't poll protected endpoints until signed in
+    }
     try {
       const [mailboxes, stats] = await Promise.all([api.mailboxes(), api.stats()])
       set({ mailboxes, stats })

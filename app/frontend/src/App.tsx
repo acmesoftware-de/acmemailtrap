@@ -7,11 +7,13 @@ import MailboxesView from './components/MailboxesView'
 import ServerView from './components/ServerView'
 import ForwardingView from './components/ForwardingView'
 import ComposerView from './components/ComposerView'
+import Login from './components/Login'
 
 export default function App() {
   const mode = useStore((s) => s.mode)
   const accent = useStore((s) => s.accent)
   const section = useStore((s) => s.section)
+  const auth = useStore((s) => s.auth)
   const init = useStore((s) => s.init)
 
   useEffect(() => {
@@ -35,6 +37,10 @@ export default function App() {
     color: 'var(--ink)',
     overflow: 'hidden',
   } as CSSProperties
+
+  if (auth && auth.enabled && !auth.authenticated) {
+    return <Login />
+  }
 
   return (
     <div className="acme-app" data-mode={mode} style={rootStyle}>

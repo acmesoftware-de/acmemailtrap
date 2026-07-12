@@ -18,6 +18,7 @@ export default function TopBar() {
   const section = useStore((s) => s.section)
   const mode = useStore((s) => s.mode)
   const build = useStore((s) => s.build)
+  const auth = useStore((s) => s.auth)
   const setSection = useStore((s) => s.setSection)
   const toggleTheme = useStore((s) => s.toggleTheme)
 
@@ -115,6 +116,7 @@ export default function TopBar() {
         {mode === 'dark' ? '◐' : '◑'}
       </button>
       <div
+        title={auth?.user ?? undefined}
         style={{
           width: 32,
           height: 32,
@@ -127,8 +129,36 @@ export default function TopBar() {
           font: "700 11px 'Space Mono'",
         }}
       >
-        JS
+        {initials(auth?.user)}
       </div>
+      {auth?.enabled && auth?.authenticated && (
+        <form action="/logout" method="post" style={{ margin: 0 }}>
+          <button
+            type="submit"
+            title="Abmelden"
+            style={{
+              marginLeft: 8,
+              padding: '8px 10px',
+              border: '1px solid var(--line)',
+              background: 'var(--bg)',
+              color: 'var(--dim)',
+              font: "700 9px 'Space Mono'",
+              letterSpacing: '.04em',
+              cursor: 'pointer',
+            }}
+          >
+            ABMELDEN
+          </button>
+        </form>
+      )}
     </div>
   )
+}
+
+function initials(user: string | null | undefined): string {
+  if (!user) return 'JS'
+  const parts = user.replace(/[^A-Za-z ]/g, ' ').trim().split(/\s+/).filter(Boolean)
+  const a = parts[0]?.[0] ?? user[0]
+  const b = parts[1]?.[0] ?? ''
+  return (a + b).toUpperCase() || 'JS'
 }

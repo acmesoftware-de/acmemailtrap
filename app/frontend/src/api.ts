@@ -1,4 +1,5 @@
 import type {
+  AuthState,
   BuildInfo,
   ForwardConfig,
   ForwarderProvider,
@@ -49,6 +50,7 @@ export const api = {
     send<{ id: string }>('POST', '/api/send', body),
   stats: () => get<Stats>('/api/stats'),
   version: () => get<BuildInfo>('/api/version'),
+  auth: () => get<AuthState>('/api/auth'),
   server: () => get<ServerInfo>('/api/server'),
   logs: (limit = 100) => get<LogEntry[]>(`/api/logs?limit=${limit}`),
   forward: () => get<ForwardConfig>('/api/forward'),

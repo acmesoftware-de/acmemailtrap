@@ -5,7 +5,6 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.core.userdetails.User;
@@ -53,11 +52,14 @@ public class SecurityConfig {
 
         boolean anyMethod = false;
         if (props.getLocal().isEnabled() && !props.getLocal().getPassword().isBlank()) {
-            http.formLogin(Customizer.withDefaults());
+            // Always land on the SPA root, not the cached XHR that triggered the redirect.
+            http.formLogin(f -> f.defaultSuccessUrl("/", true));
             anyMethod = true;
         }
         if (!registrations(props).isEmpty()) {
-            http.oauth2Login(o -> o.userInfoEndpoint(u -> u.userService(userService.getObject())));
+            http.oauth2Login(o -> o
+                    .defaultSuccessUrl("/", true)
+                    .userInfoEndpoint(u -> u.userService(userService.getObject())));
             anyMethod = true;
         }
         if (!anyMethod) {

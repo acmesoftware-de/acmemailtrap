@@ -93,6 +93,20 @@ export interface BuildInfo {
   label: string
 }
 
+export interface AuthProviderInfo {
+  id: string
+  displayName: string
+  kind: string
+  loginUrl: string
+}
+
+export interface AuthState {
+  enabled: boolean
+  authenticated: boolean
+  user: string | null
+  providers: AuthProviderInfo[]
+}
+
 export type Section = 'MAIL' | 'SRV' | 'FWD' | 'NEW'
 export type ReadView = 'html' | 'text' | 'raw'
 export type Filter = 'alle' | 'unread'
