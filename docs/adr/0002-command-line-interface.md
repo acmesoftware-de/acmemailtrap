@@ -1,6 +1,6 @@
 # ADR 0002: Command line interface with contexts
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-07-17
 
 ## Context
@@ -56,7 +56,17 @@ Per context:
 
 Secrets stay deliberately plain-text-light, as in BOWL2: the token is short-lived, and
 an OS keychain store is a follow-up cut. A context with a password is a shared-host
-context; the common local one has no credentials at all.
+context; the common local one has no credentials at all. The config file is written
+`0600`, since it may carry a password.
+
+For CI, where writing a config file is friction, `ACMEMAILTRAP_URL` (plus `_USER`,
+`_PASSWORD`, `_SMTP`, `_IMAP`, `_INSECURE_TLS`) forms an implicit context that is used
+when no context is configured; `ACMEMAILTRAP_TOKEN` fills in a missing token.
+
+Note for the login slice: the server currently offers only form login and OAuth2
+(`SecurityConfig`), so a CLI has no way to authenticate against `/api/**` when auth is
+enabled. Enabling `httpBasic()` for `/api/**` is the intended fix and is decided in
+slice 4; the context and client plumbing is built for it from the start.
 
 ### 3. Command tree
 
