@@ -37,6 +37,7 @@
         <module>plugin-api</module>
         <module>plugins</module>
         <module>app</module>
+        <module>cli</module>
     </modules>
 
     <dependencyManagement>
