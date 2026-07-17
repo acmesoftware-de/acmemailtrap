@@ -1,6 +1,11 @@
 package de.acmesoftware.mailtrap.cli;
 
 import de.acmesoftware.mailtrap.cli.cmd.ConfigCommand;
+import de.acmesoftware.mailtrap.cli.cmd.MailboxCommand;
+import de.acmesoftware.mailtrap.cli.cmd.MsgCommand;
+import de.acmesoftware.mailtrap.cli.cmd.PurgeCommand;
+import de.acmesoftware.mailtrap.cli.cmd.SearchCommand;
+import de.acmesoftware.mailtrap.cli.cmd.SendCommand;
 import de.acmesoftware.mailtrap.cli.cmd.StatusCommand;
 import de.acmesoftware.mailtrap.cli.cmd.VersionCommand;
 import picocli.CommandLine;
@@ -19,7 +24,9 @@ import java.util.concurrent.Callable;
         mixinStandardHelpOptions = true,
         versionProvider = AcmeMailtrapCli.VersionProvider.class,
         description = "Scriptable client for the trap: contexts, mailboxes, messages, assertable waits.",
-        subcommands = {ConfigCommand.class, StatusCommand.class, VersionCommand.class})
+        subcommands = {ConfigCommand.class, StatusCommand.class, VersionCommand.class,
+                MailboxCommand.class, MsgCommand.class, PurgeCommand.class,
+                SendCommand.class, SearchCommand.class})
 public class AcmeMailtrapCli implements Callable<Integer> {
 
     @Option(names = "--context", description = "Context (trap) to use, overriding the current one.",

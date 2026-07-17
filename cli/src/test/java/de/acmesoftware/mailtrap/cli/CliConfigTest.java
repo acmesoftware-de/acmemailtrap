@@ -72,6 +72,17 @@ class CliConfigTest {
     }
 
     @Test
+    void emptyFileYieldsEmptyConfig(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("empty.yaml");
+        Files.writeString(file, "   \n");
+        withConfigFile(file, () -> {
+            CliConfig cfg = CliConfig.load();
+            assertThat(cfg.contexts).isEmpty();
+            assertThat(cfg.currentContext).isNull();
+        });
+    }
+
+    @Test
     void missingFileYieldsEmptyConfig(@TempDir Path dir) throws Exception {
         withConfigFile(dir.resolve("absent.yaml"), () -> {
             CliConfig cfg = CliConfig.load();

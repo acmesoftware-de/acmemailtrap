@@ -57,6 +57,29 @@ public class ApiClient {
         return exchange(() -> builder(path).GET().build());
     }
 
+    /** Fetch a body verbatim (e.g. the {@code .eml} of {@code msg raw}); no JSON parsing. */
+    public String getRaw(String path) {
+        HttpResponse<String> res;
+        try {
+            res = http.send(builder(path).header("Accept", "*/*").GET().build(),
+                    HttpResponse.BodyHandlers.ofString());
+        } catch (ConnectException e) {
+            throw new CliError("Cannot reach the trap at " + baseUrl + " — is it running?");
+        } catch (IOException e) {
+            throw new CliError("Request to " + baseUrl + " failed: " + e.getMessage());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new CliError("Interrupted.");
+        }
+        if (res.statusCode() == 404) {
+            throw CliError.noMatch("Not found: " + res.uri().getPath());
+        }
+        if (res.statusCode() >= 400) {
+            throw new CliError("The trap answered " + res.statusCode() + ".");
+        }
+        return res.body();
+    }
+
     public JsonNode delete(String path) {
         return exchange(() -> builder(path).DELETE().build());
     }

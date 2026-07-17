@@ -69,6 +69,24 @@ public final class Output {
         return wrap(DIM, v);
     }
 
+    /** Epoch millis to a local {@code yyyy-MM-dd HH:mm} stamp, or {@code "-"} for 0/missing. */
+    public static String time(long epochMillis) {
+        if (epochMillis <= 0) {
+            return "-";
+        }
+        return java.time.Instant.ofEpochMilli(epochMillis)
+                .atZone(java.time.ZoneId.systemDefault())
+                .format(java.time.format.DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm"));
+    }
+
+    /** Truncate to {@code max} visible characters with an ellipsis. */
+    public static String ellipsize(String s, int max) {
+        if (s == null) {
+            return "-";
+        }
+        return s.length() <= max ? s : s.substring(0, Math.max(0, max - 1)) + "…";
+    }
+
     private static String wrap(String code, String text) {
         return color ? code + text + RESET : text;
     }

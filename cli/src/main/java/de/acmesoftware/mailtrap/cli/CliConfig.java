@@ -93,8 +93,17 @@ public class CliConfig {
         if (!Files.exists(p)) {
             return new CliConfig();
         }
+        String content;
         try {
-            CliConfig c = YAML.readValue(Files.readString(p), CliConfig.class);
+            content = Files.readString(p);
+        } catch (IOException e) {
+            throw new UncheckedIOException("Cannot read configuration: " + p, e);
+        }
+        if (content.isBlank()) {
+            return new CliConfig();
+        }
+        try {
+            CliConfig c = YAML.readValue(content, CliConfig.class);
             if (c == null) {
                 return new CliConfig();
             }
@@ -102,8 +111,9 @@ public class CliConfig {
                 c.contexts = new LinkedHashMap<>();
             }
             return c;
-        } catch (IOException e) {
-            throw new UncheckedIOException("Cannot read configuration: " + p, e);
+        } catch (RuntimeException e) {
+            // Jackson 3 throws unchecked on malformed YAML; surface a clean CliError, not a stack trace.
+            throw new CliError("Cannot parse configuration " + p + ": " + e.getMessage());
         }
     }
 
