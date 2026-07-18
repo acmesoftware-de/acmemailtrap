@@ -6,10 +6,7 @@
     <title>ACMEmailtrap API — Redoc</title>
     <style>
       /* ACMEsoftware portal header — self-contained (no CDN), mirrors the brand kit. */
-      :root {
-        --ink: #141414; --paper: #f5f4f0; --graphite-tint: #9aa0aa;
-        --crm: #e63329; --hr: #f6be00; --supply: #1f9e5a; --build: #0057b8;
-      }
+      :root { --ink: #141414; --paper: #f5f4f0; --hr: #f6be00; } /* brand: bar #141414, accent yellow */
       body { margin: 0; }
       nav.portal-nav {
         display: flex; align-items: center; gap: 20px;
@@ -17,15 +14,9 @@
         font-family: 'Archivo', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
       }
       nav.portal-nav .brand { display: flex; align-items: center; gap: 11px; text-decoration: none; margin-right: 6px; }
-      nav.portal-nav .bars { display: flex; align-items: flex-end; gap: 2.5px; height: 22px; }
-      nav.portal-nav .bars i { width: 5px; display: block; }
-      nav.portal-nav .bars i:nth-child(1) { height: 9px;  background: var(--crm); }
-      nav.portal-nav .bars i:nth-child(2) { height: 14px; background: var(--hr); }
-      nav.portal-nav .bars i:nth-child(3) { height: 18px; background: var(--build); }
-      nav.portal-nav .bars i:nth-child(4) { height: 22px; background: var(--supply); }
-      nav.portal-nav .wm { display: flex; flex-direction: column; line-height: .8; }
+      nav.portal-nav .logo { display: block; flex: none; height: 24px; }
+      nav.portal-nav .wm { display: flex; align-items: center; }
       nav.portal-nav .wm b { font-size: 15px; letter-spacing: -0.04em; color: var(--paper); font-weight: 800; }
-      nav.portal-nav .wm span { font-size: 6px; letter-spacing: 0.28em; color: var(--graphite-tint); padding-left: 0.28em; font-weight: 700; }
       nav.portal-nav .nav-links { display: flex; align-items: center; gap: 20px; flex: 1; }
       nav.portal-nav .nav-links a {
         color: #c9c9c9; text-decoration: none; font-weight: 700; font-size: 14px;
@@ -46,8 +37,13 @@
   <body>
     <nav class="portal-nav">
       <a class="brand" href="/">
-        <span class="bars"><i></i><i></i><i></i><i></i></span>
-        <span class="wm"><b>ACMEMAILTRAP</b><span>SMTP-FALLE</span></span>
+        <svg class="logo" viewBox="0 0 101 96" role="img" aria-label="ACMEmailtrap" xmlns="http://www.w3.org/2000/svg">
+          <rect x="0" y="54" width="20" height="42" fill="#E63329" />
+          <rect x="27" y="34" width="20" height="62" fill="#F6BE00" />
+          <rect x="54" y="16" width="20" height="80" fill="#0057B8" />
+          <rect x="81" y="0" width="20" height="96" fill="#1F9E5A" />
+        </svg>
+        <span class="wm"><b>ACMEMAILTRAP</b></span>
       </a>
       <span class="nav-links">
         <a href="/swagger.html">Swagger</a>
