@@ -2,6 +2,10 @@ package de.acmesoftware.mailtrap.cli;
 
 import de.acmesoftware.mailtrap.cli.cmd.ConfigCommand;
 import de.acmesoftware.mailtrap.cli.cmd.ExtractCommand;
+import de.acmesoftware.mailtrap.cli.cmd.ForwardCommand;
+import de.acmesoftware.mailtrap.cli.cmd.LoginCommand;
+import de.acmesoftware.mailtrap.cli.cmd.LogoutCommand;
+import de.acmesoftware.mailtrap.cli.cmd.LogsCommand;
 import de.acmesoftware.mailtrap.cli.cmd.MailboxCommand;
 import de.acmesoftware.mailtrap.cli.cmd.MsgCommand;
 import de.acmesoftware.mailtrap.cli.cmd.PurgeCommand;
@@ -29,7 +33,9 @@ import java.util.concurrent.Callable;
         subcommands = {ConfigCommand.class, StatusCommand.class, VersionCommand.class,
                 MailboxCommand.class, MsgCommand.class, PurgeCommand.class,
                 SendCommand.class, SearchCommand.class,
-                WaitCommand.class, ExtractCommand.class})
+                WaitCommand.class, ExtractCommand.class,
+                LoginCommand.class, LogoutCommand.class, LogsCommand.class,
+                ForwardCommand.class})
 public class AcmeMailtrapCli implements Callable<Integer> {
 
     @Option(names = "--context", description = "Context (trap) to use, overriding the current one.",

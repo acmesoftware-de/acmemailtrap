@@ -93,6 +93,38 @@ public class ApiClient {
         });
     }
 
+    public JsonNode put(String path, Object body) {
+        return exchange(() -> {
+            HttpRequest.BodyPublisher pub = body == null
+                    ? HttpRequest.BodyPublishers.noBody()
+                    : HttpRequest.BodyPublishers.ofString(JSON.writeValueAsString(body));
+            return builder(path).header("Content-Type", "application/json").PUT(pub).build();
+        });
+    }
+
+    /** Fetch a binary body to a byte array (e.g. an attachment). */
+    public byte[] getBytes(String path) {
+        HttpResponse<byte[]> res;
+        try {
+            res = http.send(builder(path).header("Accept", "*/*").GET().build(),
+                    HttpResponse.BodyHandlers.ofByteArray());
+        } catch (ConnectException e) {
+            throw new CliError("Cannot reach the trap at " + baseUrl + " — is it running?");
+        } catch (IOException e) {
+            throw new CliError("Request to " + baseUrl + " failed: " + e.getMessage());
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new CliError("Interrupted.");
+        }
+        if (res.statusCode() == 404) {
+            throw CliError.noMatch("Not found: " + res.uri().getPath());
+        }
+        if (res.statusCode() >= 400) {
+            throw new CliError("The trap answered " + res.statusCode() + ".");
+        }
+        return res.body();
+    }
+
     private HttpRequest.Builder builder(String path) {
         HttpRequest.Builder b = HttpRequest.newBuilder(URI.create(baseUrl + path))
                 .timeout(Duration.ofSeconds(30))

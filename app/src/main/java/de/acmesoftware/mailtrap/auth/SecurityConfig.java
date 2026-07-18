@@ -18,7 +18,9 @@ import org.springframework.security.oauth2.client.registration.InMemoryClientReg
 import org.springframework.security.oauth2.core.AuthorizationGrantType;
 import org.springframework.security.oauth2.core.ClientAuthenticationMethod;
 import org.springframework.security.provisioning.InMemoryUserDetailsManager;
+import org.springframework.security.web.AuthenticationEntryPoint;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.www.BasicAuthenticationEntryPoint;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -54,6 +56,11 @@ public class SecurityConfig {
         if (props.getLocal().isEnabled() && !props.getLocal().getPassword().isBlank()) {
             // Always land on the SPA root, not the cached XHR that triggered the redirect.
             http.formLogin(f -> f.defaultSuccessUrl("/", true));
+            // HTTP Basic for the CLI and other API clients (ADR-0002): authenticates as the local
+            // user against the same UserDetailsService. The entry point only sends the
+            // WWW-Authenticate challenge to a client that offered Basic credentials itself, so the
+            // SPA's plain fetch gets a quiet 401 (no native browser popup) and shows its login screen.
+            http.httpBasic(b -> b.authenticationEntryPoint(cliBasicEntryPoint()));
             anyMethod = true;
         }
         if (!registrations(props).isEmpty()) {
@@ -67,6 +74,24 @@ public class SecurityConfig {
                     + "(local password / GitHub / GitLab) — nobody can sign in.");
         }
         return http.build();
+    }
+
+    /**
+     * A Basic entry point that challenges only clients that offered Basic credentials themselves (an
+     * {@code Authorization: Basic} header) — the CLI. Requests without it (the SPA's fetch) get a plain
+     * 401 with no {@code WWW-Authenticate} header, so no native browser popup appears.
+     */
+    private static AuthenticationEntryPoint cliBasicEntryPoint() {
+        BasicAuthenticationEntryPoint challenge = new BasicAuthenticationEntryPoint();
+        challenge.setRealmName("ACMEmailtrap");
+        return (request, response, ex) -> {
+            String auth = request.getHeader("Authorization");
+            if (auth != null && auth.regionMatches(true, 0, "Basic ", 0, 6)) {
+                challenge.commence(request, response, ex);
+            } else {
+                response.sendError(jakarta.servlet.http.HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized");
+            }
+        };
     }
 
     @Bean
