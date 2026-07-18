@@ -69,6 +69,46 @@ as `bob@kunde.test` with any password; the mailbox is `INBOX`).
 > Prebuilt jar: see the [latest release](https://github.com/acmesoftware-de/acmemailtrap/releases).
 > Build the backend only (skip the npm build) with `mvn package -Dskip.frontend=true`.
 
+## CLI
+
+A scriptable client ships alongside the server (module `cli/`, see
+[ADR-0002](docs/adr/0002-command-line-interface.md)). It mirrors the BOWL2 CLI:
+kubectl-style **contexts** in `~/.config/acmemailtrap/config.json` (override with
+`ACMEMAILTRAP_CONFIG`, or a one-off context from `ACMEMAILTRAP_URL`/`_SMTP`/…), and a
+`-o json` mode on every command for `jq`.
+
+```bash
+# run it as the fat jar, the native binary (acmemailtrap-cli / amt), or in the image
+alias amt='java -jar cli/target/acmemailtrap-cli.jar'
+
+amt config set-context local --url http://127.0.0.1:8090 --smtp 127.0.0.1:1025
+amt mailbox ls
+amt msg ls bob@kunde.test
+```
+
+The point of a CLI for a mail trap is turning "a mail arrives eventually" into an
+assertable test step (exit 0 match, 1 no-match/timeout, 2 usage, 3 connection):
+
+```bash
+amt purge --all
+# … trigger the ACMEsuite flow that sends the mail …
+amt wait    --to bob@kunde.test --subject 'Passwort' --timeout 30s
+TOKEN=$(amt extract code --to bob@kunde.test)
+URL=$(amt extract link --to bob@kunde.test --pattern '/reset/')
+```
+
+Also: `send` (over SMTP by default, `--via api` for the composer), `search`, `logs -f`,
+`forward providers|get|set|send`, `login`/`logout` (HTTP Basic, when the trap's auth is
+enabled), and `msg show|raw|open|rm|seen|attach`.
+
+Native binaries (`~20ms` start, for `wait`/`extract` loops) are attached to each
+[release](https://github.com/acmesoftware-de/acmemailtrap/releases); rename or symlink to
+`amt`. The Docker image bundles the CLI too, pre-pointed at the in-container trap:
+
+```bash
+docker exec <container> amt wait --to bob@kunde.test --subject 'Passwort'
+```
+
 ## Architecture
 
 The **filesystem is the single source of truth.** Layout under `data-dir`:

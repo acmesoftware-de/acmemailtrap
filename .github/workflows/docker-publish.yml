@@ -25,10 +25,11 @@ jobs:
           cache: maven
 
       # Build the (architecture-independent) jar once, natively.
-      - name: Build jar
+      - name: Build jars
         run: |
           ./mvnw -q -B -DskipTests package
           cp app/target/acmemailtrap.jar ./acmemailtrap.jar
+          cp cli/target/acmemailtrap-cli.jar ./acmemailtrap-cli.jar
 
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
