@@ -15,7 +15,7 @@ class EnvContextTest {
 
     @Test
     void noContextAnywhereIsUsageError() {
-        System.setProperty("acmemailtrap.config", "/nonexistent/does-not-exist.yaml");
+        System.setProperty("acmemailtrap.config", "/nonexistent/does-not-exist.json");
         AcmeMailtrapCli app = new AcmeMailtrapCli();
         // Only fails if ACMEMAILTRAP_URL is also unset in the environment, which it is under test.
         if (System.getenv("ACMEMAILTRAP_URL") == null) {

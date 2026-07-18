@@ -1,8 +1,7 @@
 package de.acmesoftware.mailtrap.cli;
 
-import com.fasterxml.jackson.annotation.JsonInclude;
 import tools.jackson.databind.ObjectMapper;
-import tools.jackson.dataformat.yaml.YAMLMapper;
+import tools.jackson.databind.json.JsonMapper;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -15,13 +14,17 @@ import java.util.Map;
 /**
  * CLI configuration (ADR-0002): several traps as <b>contexts</b> (like {@code kubectl}), each with
  * its base URL, SMTP/IMAP endpoints and optional credentials. Lives at
- * {@code ~/.config/acmemailtrap/config.yaml} (override via {@code ACMEMAILTRAP_CONFIG} or
+ * {@code ~/.config/acmemailtrap/config.json} (override via {@code ACMEMAILTRAP_CONFIG} or
  * {@code -Dacmemailtrap.config}). Written {@code 0600} because a context may carry a password.
+ *
+ * <p>JSON, not YAML, and mapped through {@link java.util.Map} by hand rather than reflective bean
+ * binding: both keep the CLI's only serialization path robust under a GraalVM native image, where
+ * Jackson's reflective assignment to a primitive field (e.g. {@code boolean insecureTls}) is broken.
+ * The logical shape is unchanged from BOWL2's config.
  */
-@JsonInclude(JsonInclude.Include.NON_NULL)
 public class CliConfig {
 
-    private static final ObjectMapper YAML = YAMLMapper.builder().build();
+    private static final ObjectMapper JSON = JsonMapper.builder().build();
 
     public String currentContext;
     public Map<String, Context> contexts = new LinkedHashMap<>();
@@ -29,7 +32,6 @@ public class CliConfig {
     public Prefs prefs;
 
     /** Persistent output defaults. {@code null} fields = unset, the built-in default applies. */
-    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class Prefs {
         public Boolean pretty;   // true|false
         public String color;     // auto|always|never
@@ -37,7 +39,6 @@ public class CliConfig {
     }
 
     /** One trap. */
-    @JsonInclude(JsonInclude.Include.NON_NULL)
     public static class Context {
         /** Base URL of the web/API endpoint, e.g. {@code http://127.0.0.1:8090}. */
         public String url;
@@ -85,7 +86,7 @@ public class CliConfig {
         if (env != null && !env.isBlank()) {
             return Path.of(env);
         }
-        return Path.of(System.getProperty("user.home"), ".config", "acmemailtrap", "config.yaml");
+        return Path.of(System.getProperty("user.home"), ".config", "acmemailtrap", "config.json");
     }
 
     public static CliConfig load() {
@@ -103,29 +104,119 @@ public class CliConfig {
             return new CliConfig();
         }
         try {
-            CliConfig c = YAML.readValue(content, CliConfig.class);
-            if (c == null) {
-                return new CliConfig();
-            }
-            if (c.contexts == null) {
-                c.contexts = new LinkedHashMap<>();
-            }
-            return c;
+            // Read into plain maps, then map by hand — no reflective bean binding. Jackson's
+            // reflective assignment to a primitive boolean field is broken under a GraalVM native
+            // image; going through java.util.Map (built-in deserializers) sidesteps it entirely.
+            @SuppressWarnings("unchecked")
+            Map<String, Object> root = JSON.readValue(content, Map.class);
+            return fromMap(root);
         } catch (RuntimeException e) {
-            // Jackson 3 throws unchecked on malformed YAML; surface a clean CliError, not a stack trace.
+            // Jackson 3 throws unchecked on malformed JSON; surface a clean CliError, not a stack trace.
             throw new CliError("Cannot parse configuration " + p + ": " + e.getMessage());
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static CliConfig fromMap(Map<String, Object> root) {
+        CliConfig c = new CliConfig();
+        if (root == null) {
+            return c;
+        }
+        c.currentContext = str(root.get("currentContext"));
+        if (root.get("contexts") instanceof Map<?, ?> ctxs) {
+            for (var e : ctxs.entrySet()) {
+                if (e.getValue() instanceof Map<?, ?> m) {
+                    c.contexts.put(String.valueOf(e.getKey()), contextFromMap((Map<String, Object>) m));
+                }
+            }
+        }
+        if (root.get("prefs") instanceof Map<?, ?> pm) {
+            Prefs p = new Prefs();
+            p.pretty = boolOrNull(pm.get("pretty"));
+            p.color = str(pm.get("color"));
+            p.output = str(pm.get("output"));
+            c.prefs = p;
+        }
+        return c;
+    }
+
+    private static Context contextFromMap(Map<String, Object> m) {
+        Context ctx = new Context();
+        ctx.url = str(m.get("url"));
+        ctx.smtp = str(m.get("smtp"));
+        ctx.imap = str(m.get("imap"));
+        ctx.user = str(m.get("user"));
+        ctx.password = str(m.get("password"));
+        ctx.token = str(m.get("token"));
+        ctx.insecureTls = Boolean.TRUE.equals(boolOrNull(m.get("insecureTls")));
+        return ctx;
     }
 
     public void save() {
         Path p = path();
         try {
             Files.createDirectories(p.getParent());
-            Files.writeString(p, YAML.writeValueAsString(this));
+            // Serialize a plain Map (built-in serializers), not this bean — symmetric with load()
+            // and free of reflection, so the native image behaves like the JVM.
+            Files.writeString(p, JSON.writerWithDefaultPrettyPrinter().writeValueAsString(toMap()));
             restrictPermissions(p);
         } catch (IOException e) {
             throw new UncheckedIOException("Cannot write configuration: " + p, e);
         }
+    }
+
+    private Map<String, Object> toMap() {
+        Map<String, Object> root = new LinkedHashMap<>();
+        if (currentContext != null) {
+            root.put("currentContext", currentContext);
+        }
+        Map<String, Object> ctxOut = new LinkedHashMap<>();
+        for (var e : contexts.entrySet()) {
+            Context c = e.getValue();
+            Map<String, Object> m = new LinkedHashMap<>();
+            putIfSet(m, "url", c.url);
+            putIfSet(m, "smtp", c.smtp);
+            putIfSet(m, "imap", c.imap);
+            putIfSet(m, "user", c.user);
+            putIfSet(m, "password", c.password);
+            putIfSet(m, "token", c.token);
+            if (c.insecureTls) {
+                m.put("insecureTls", true);
+            }
+            ctxOut.put(e.getKey(), m);
+        }
+        root.put("contexts", ctxOut);
+        if (prefs != null) {
+            Map<String, Object> pm = new LinkedHashMap<>();
+            if (prefs.pretty != null) {
+                pm.put("pretty", prefs.pretty);
+            }
+            putIfSet(pm, "color", prefs.color);
+            putIfSet(pm, "output", prefs.output);
+            root.put("prefs", pm);
+        }
+        return root;
+    }
+
+    private static void putIfSet(Map<String, Object> m, String key, String value) {
+        if (value != null) {
+            m.put(key, value);
+        }
+    }
+
+    private static String str(Object o) {
+        return o == null ? null : String.valueOf(o);
+    }
+
+    /** A JSON boolean as Boolean; also tolerates a number (0/1) or the strings "true"/"false". */
+    private static Boolean boolOrNull(Object o) {
+        return switch (o) {
+            case null -> null;
+            case Boolean b -> b;
+            case Number n -> n.intValue() != 0;
+            case String s -> Boolean.parseBoolean(s);
+            default -> null;
+        };
     }
 
     /** Owner-only, since a context may hold a password. Silently skipped on non-POSIX filesystems. */

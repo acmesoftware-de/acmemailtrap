@@ -40,8 +40,11 @@ fallback.
 
 ### 2. Contexts, mirroring BOWL2
 
-`~/.config/acmemailtrap/config.yaml`, override via `ACMEMAILTRAP_CONFIG` or
-`-Dacmemailtrap.config`. Same file shape: `currentContext`, `contexts`, `prefs`.
+`~/.config/acmemailtrap/config.json`, override via `ACMEMAILTRAP_CONFIG` or
+`-Dacmemailtrap.config`. Same logical shape as BOWL2's config: `currentContext`,
+`contexts`, `prefs`. The format is JSON rather than YAML so the CLI's only serialization
+path carries no snakeyaml, which misresolves scalar types under a GraalVM native image
+(slice 5); the shape is otherwise identical.
 
 Per context:
 
@@ -143,4 +146,11 @@ information the CLI reports (`status`) and points other tools at.
 3. Test support: `wait`, `extract link|code`, exit-code contract.
 4. Remainder: `login`/`logout`, `logs -f`, `msg open|rm|seen|attach`, `forward *`,
    `completion`.
-5. GraalVM native image + `amt` alias in the distribution and in the Docker image.
+5. GraalVM native image + `amt` alias. The native binary (`mvn -Pnative-image -pl cli`,
+   built per OS/arch in CI and attached to the release) starts in ~20ms; the portable fat
+   jar stays the fallback. `amt` is the same binary/jar under a short name. The server
+   Docker image also ships the CLI jar with an `amt`/`acmemailtrap` wrapper and
+   `ACMEMAILTRAP_URL`/`_SMTP` pre-pointed at the in-container trap, so
+   `docker exec <container> amt wait --to …` works out of the box — a native compile is
+   not baked into the multi-arch image (it would be QEMU-slow for arm64; the release
+   binaries cover host use).

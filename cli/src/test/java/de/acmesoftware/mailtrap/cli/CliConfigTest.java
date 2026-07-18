@@ -12,8 +12,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 class CliConfigTest {
 
     @Test
-    void roundTripsThroughYaml(@TempDir Path dir) throws Exception {
-        Path file = dir.resolve("config.yaml");
+    void roundTripsThroughJson(@TempDir Path dir) throws Exception {
+        Path file = dir.resolve("config.json");
         withConfigFile(file, () -> {
             CliConfig cfg = new CliConfig();
             CliConfig.Context c = new CliConfig.Context();
@@ -37,7 +37,7 @@ class CliConfigTest {
 
     @Test
     void savedFileIsOwnerOnly(@TempDir Path dir) throws Exception {
-        Path file = dir.resolve("config.yaml");
+        Path file = dir.resolve("config.json");
         withConfigFile(file, () -> {
             CliConfig cfg = new CliConfig();
             CliConfig.Context c = new CliConfig.Context();
@@ -73,7 +73,7 @@ class CliConfigTest {
 
     @Test
     void emptyFileYieldsEmptyConfig(@TempDir Path dir) throws Exception {
-        Path file = dir.resolve("empty.yaml");
+        Path file = dir.resolve("empty.json");
         Files.writeString(file, "   \n");
         withConfigFile(file, () -> {
             CliConfig cfg = CliConfig.load();
@@ -84,7 +84,7 @@ class CliConfigTest {
 
     @Test
     void missingFileYieldsEmptyConfig(@TempDir Path dir) throws Exception {
-        withConfigFile(dir.resolve("absent.yaml"), () -> {
+        withConfigFile(dir.resolve("absent.json"), () -> {
             CliConfig cfg = CliConfig.load();
             assertThat(cfg.contexts).isEmpty();
             assertThat(cfg.currentContext).isNull();

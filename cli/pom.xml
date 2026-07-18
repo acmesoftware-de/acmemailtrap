@@ -32,10 +32,6 @@
             <groupId>tools.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>
-        <dependency>
-            <groupId>tools.jackson.dataformat</groupId>
-            <artifactId>jackson-dataformat-yaml</artifactId>
-        </dependency>
 
         <dependency>
             <groupId>org.junit.jupiter</groupId>
@@ -88,4 +84,56 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!--
+          Native binary (ADR-0002 slice 5): mvn -Pnative-image -pl cli package on a GraalVM JDK
+          produces cli/target/acmemailtrap-cli, a self-contained ~20ms-start executable. picocli's
+          annotation processor emits the reflection/resource config under META-INF/native-image; the
+          hand-written reflect-config next to it covers the Jackson-mapped CliConfig classes.
+
+          The profile is deliberately NOT named "native": the Spring Boot parent binds a Spring AOT
+          step to a profile by that name, which fails here since the CLI is not a Spring application.
+        -->
+        <profile>
+            <id>native-image</id>
+            <build>
+                <plugins>
+                    <!-- Skip the Boot loader repackage for native builds: native-image needs the
+                         plain jar (classes at the root), not the BOOT-INF/classes layout. -->
+                    <plugin>
+                        <groupId>org.springframework.boot</groupId>
+                        <artifactId>spring-boot-maven-plugin</artifactId>
+                        <configuration>
+                            <skip>true</skip>
+                        </configuration>
+                    </plugin>
+                    <plugin>
+                        <groupId>org.graalvm.buildtools</groupId>
+                        <artifactId>native-maven-plugin</artifactId>
+                        <version>0.10.3</version>
+                        <extensions>true</extensions>
+                        <executions>
+                            <execution>
+                                <id>build-native</id>
+                                <goals>
+                                    <goal>compile-no-fork</goal>
+                                </goals>
+                                <phase>package</phase>
+                            </execution>
+                        </executions>
+                        <configuration>
+                            <imageName>acmemailtrap-cli</imageName>
+                            <mainClass>${main.class}</mainClass>
+                            <buildArgs>
+                                <buildArg>--no-fallback</buildArg>
+                                <buildArg>-O2</buildArg>
+                                <buildArg>-H:+ReportExceptionStackTraces</buildArg>
+                            </buildArgs>
+                        </configuration>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

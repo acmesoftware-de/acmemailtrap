@@ -33,13 +33,21 @@ LABEL org.opencontainers.image.title="ACMEmailtrap" \
 ENV JAVA_HOME=/opt/java \
     PATH="/opt/java/bin:${PATH}" \
     ACMEMAILTRAP_DATA_DIR=/data \
-    JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError"
+    JAVA_TOOL_OPTIONS="-XX:MaxRAMPercentage=75 -XX:+ExitOnOutOfMemoryError" \
+    ACMEMAILTRAP_URL=http://localhost:8090 \
+    ACMEMAILTRAP_SMTP=localhost:1025
 
 RUN groupadd -r trap && useradd -r -g trap -d /app -s /usr/sbin/nologin trap \
     && mkdir -p /app /data && chown -R trap:trap /app /data
 
 COPY --from=build /javaruntime /opt/java
 COPY --from=build --chown=trap:trap /src/app/target/acmemailtrap.jar /app/acmemailtrap.jar
+# The CLI ships alongside the server: `docker exec <container> amt wait --to …` drives the
+# in-container trap (ACMEMAILTRAP_URL/_SMTP above point it at localhost).
+COPY --from=build --chown=trap:trap /src/cli/target/acmemailtrap-cli.jar /app/acmemailtrap-cli.jar
+RUN printf '#!/bin/sh\nexec java -jar /app/acmemailtrap-cli.jar "$@"\n' > /usr/local/bin/acmemailtrap \
+    && chmod +x /usr/local/bin/acmemailtrap \
+    && ln -s acmemailtrap /usr/local/bin/amt
 
 WORKDIR /app
 USER trap

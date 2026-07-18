@@ -14,7 +14,7 @@ class ConfigCommandTest {
 
     @Test
     void setContextThenUseAndList(@TempDir Path dir) {
-        Path cfg = dir.resolve("config.yaml");
+        Path cfg = dir.resolve("config.json");
         assertThat(run(cfg, "config", "set-context", "local", "--url", "http://127.0.0.1:8090")).isZero();
         assertThat(run(cfg, "config", "set-context", "dev", "--url", "https://mail.dev.example",
                 "--user", "tester", "--password", "pw", "--insecure-tls")).isZero();
@@ -32,7 +32,7 @@ class ConfigCommandTest {
 
     @Test
     void setContextIsAdditive(@TempDir Path dir) {
-        Path cfg = dir.resolve("config.yaml");
+        Path cfg = dir.resolve("config.json");
         run(cfg, "config", "set-context", "local", "--url", "http://127.0.0.1:8090", "--user", "bob");
         // A later call touching only --smtp must not wipe url/user.
         run(cfg, "config", "set-context", "local", "--smtp", "127.0.0.1:2525");
@@ -44,19 +44,19 @@ class ConfigCommandTest {
 
     @Test
     void newContextWithoutUrlIsUsageError(@TempDir Path dir) {
-        Path cfg = dir.resolve("config.yaml");
+        Path cfg = dir.resolve("config.json");
         assertThat(run(cfg, "config", "set-context", "broken", "--user", "x")).isEqualTo(CliError.USAGE);
     }
 
     @Test
     void useUnknownContextIsUsageError(@TempDir Path dir) {
-        Path cfg = dir.resolve("config.yaml");
+        Path cfg = dir.resolve("config.json");
         assertThat(run(cfg, "config", "use-context", "nope")).isEqualTo(CliError.USAGE);
     }
 
     @Test
     void deleteContextClearsActive(@TempDir Path dir) {
-        Path cfg = dir.resolve("config.yaml");
+        Path cfg = dir.resolve("config.json");
         run(cfg, "config", "set-context", "local", "--url", "http://127.0.0.1:8090");
         assertThat(run(cfg, "config", "delete-context", "local")).isZero();
         assertThat(load(cfg).currentContext).isNull();
@@ -65,7 +65,7 @@ class ConfigCommandTest {
 
     @Test
     void setPrefRejectsUnknownValue(@TempDir Path dir) {
-        Path cfg = dir.resolve("config.yaml");
+        Path cfg = dir.resolve("config.json");
         assertThat(run(cfg, "config", "set-pref", "output=xml")).isEqualTo(CliError.USAGE);
         assertThat(run(cfg, "config", "set-pref", "output=json")).isZero();
         assertThat(load(cfg).prefs.output).isEqualTo("json");
