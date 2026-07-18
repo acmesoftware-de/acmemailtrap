@@ -9,6 +9,7 @@ import ForwardingView from './components/ForwardingView'
 import ComposerView from './components/ComposerView'
 import Login from './components/Login'
 import CommandPalette from './components/CommandPalette'
+import Footer from './components/Footer'
 
 export default function App() {
   const mode = useStore((s) => s.mode)
@@ -66,6 +67,7 @@ export default function App() {
         {section === 'FWD' && <ForwardingView />}
         {section === 'NEW' && <ComposerView />}
       </div>
+      <Footer />
       <CommandPalette />
     </div>
   )
